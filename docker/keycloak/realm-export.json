@@ -1,0 +1,48 @@
+﻿{
+  "realm": "eventix",
+  "enabled": true,
+  "registrationAllowed": true,
+  "roles": {
+    "realm": [
+      { "name": "ROLE_CUSTOMER", "description": "Customer role" },
+      { "name": "ROLE_ADMIN", "description": "Administrator role" },
+      { "name": "ROLE_AUDITOR", "description": "Security and audit officer" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "eventix-frontend",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "redirectUris": ["http://localhost:5173/*", "http://localhost:3000/*"],
+      "webOrigins": ["+"]
+    },
+    {
+      "clientId": "eventix-gateway",
+      "enabled": true,
+      "bearerOnly": true
+    }
+  ],
+  "users": [
+    {
+      "username": "customer1",
+      "enabled": true,
+      "email": "customer1@eventix.com",
+      "firstName": "John",
+      "lastName": "Doe",
+      "credentials": [{ "type": "password", "value": "customer123" }],
+      "realmRoles": ["ROLE_CUSTOMER"]
+    },
+    {
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@eventix.com",
+      "firstName": "Admin",
+      "lastName": "User",
+      "credentials": [{ "type": "password", "value": "admin123" }],
+      "realmRoles": ["ROLE_ADMIN", "ROLE_CUSTOMER", "ROLE_AUDITOR"]
+    }
+  ]
+}
