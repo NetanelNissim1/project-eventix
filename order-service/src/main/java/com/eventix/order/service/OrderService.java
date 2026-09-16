@@ -108,7 +108,10 @@ public class OrderService {
             throw new RuntimeException("Failed to serialize OrderCreatedEvent to JSON", e);
         }
 
-        // 3. Publish audit event asynchronously
+        // 3. Publish to Kafka topic to trigger Saga workflow
+        kafkaTemplate.send(KafkaTopics.ORDER_CREATED, orderId, event);
+
+        // 4. Publish audit event asynchronously
         publishAuditEvent(
             effectiveTraceId,
             userId != null ? userId : request.customerId(),
