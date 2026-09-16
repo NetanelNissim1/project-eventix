@@ -16,13 +16,19 @@ public class RedissonConfig {
     @Value("${spring.data.redis.port:6379}")
     private int redisPort;
 
+    @Value("${spring.data.redis.password:}")
+    private String redisPassword;
+
     @Bean(destroyMethod = "shutdown")
     public RedissonClient redissonClient() {
         Config config = new Config();
-        config.useSingleServer()
+        var serverConfig = config.useSingleServer()
             .setAddress("redis://" + redisHost + ":" + redisPort)
             .setConnectionPoolSize(64)
             .setConnectionMinimumIdleSize(10);
+        if (redisPassword != null && !redisPassword.isBlank()) {
+            serverConfig.setPassword(redisPassword);
+        }
         return Redisson.create(config);
     }
 }
