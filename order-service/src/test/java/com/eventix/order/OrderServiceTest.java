@@ -69,4 +69,23 @@ class OrderServiceTest {
         assertThat(capturedOutbox.getStatus()).isEqualTo("PENDING");
         assertThat(capturedOutbox.getPayload()).contains("user@test.com");
     }
+
+    @Test
+    void testGetAllOrders() {
+        OrderEntity order1 = new OrderEntity(
+                java.util.UUID.randomUUID().toString(),
+                "cust-1",
+                "admin@eventix.io",
+                new BigDecimal("150.00"),
+                OrderStatus.CONFIRMED,
+                java.time.Instant.now()
+        );
+        when(orderRepository.findAll()).thenReturn(List.of(order1));
+
+        List<OrderResponse> orders = orderService.getAllOrders();
+
+        assertThat(orders).hasSize(1);
+        assertThat(orders.get(0).customerId()).isEqualTo("cust-1");
+        assertThat(orders.get(0).status()).isEqualTo(OrderStatus.CONFIRMED);
+    }
 }

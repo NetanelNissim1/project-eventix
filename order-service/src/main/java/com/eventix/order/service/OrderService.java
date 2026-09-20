@@ -161,6 +161,14 @@ public class OrderService {
             .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<OrderResponse> getAllOrders() {
+        return orderRepository.findAll().stream()
+            .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
+            .map(this::mapToResponse)
+            .toList();
+    }
+
     private void publishAuditEvent(String traceId, String userId, String ip, AuditLevel level, String action, String details, String error) {
         try {
             AuditEvent auditEvent = new AuditEvent(

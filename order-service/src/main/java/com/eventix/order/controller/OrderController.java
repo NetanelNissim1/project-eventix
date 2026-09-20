@@ -50,4 +50,9 @@ public class OrderController {
     public ResponseEntity<List<OrderResponse>> getCustomerOrders(@PathVariable String customerId) {
         return ResponseEntity.ok(orderService.getOrdersByCustomer(customerId));
     }
+
+    @GetMapping
+    public ResponseEntity<List<OrderResponse>> getAllOrders() {
+        return ResponseEntity.ok(orderService.getAllOrders());
+    }
 }

@@ -57,6 +57,13 @@ public class CatalogService {
         return productRepository.save(product);
     }
 
+    @CacheEvict(value = {"products", "product-list"}, allEntries = true)
+    @Transactional
+    public void deleteProduct(String id) {
+        log.info("Deleting product {} and evicting Redis cache", id);
+        productRepository.deleteById(id);
+    }
+
     @Transactional
     public CategoryEntity saveCategory(CategoryEntity category) {
         return categoryRepository.save(category);

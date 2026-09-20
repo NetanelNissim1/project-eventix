@@ -5,6 +5,7 @@ import com.eventix.catalog.entity.ProductEntity;
 import com.eventix.catalog.service.CatalogService;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -42,5 +43,11 @@ public class CatalogController {
     @PostMapping("/products")
     public ResponseEntity<ProductEntity> createProduct(@RequestBody ProductEntity product) {
         return ResponseEntity.ok(catalogService.saveProduct(product));
+    }
+
+    @DeleteMapping("/products/{id}")
+    public ResponseEntity<Void> deleteProduct(@PathVariable String id) {
+        catalogService.deleteProduct(id);
+        return ResponseEntity.noContent().build();
     }
 }
