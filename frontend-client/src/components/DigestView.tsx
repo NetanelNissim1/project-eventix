@@ -39,7 +39,7 @@ export const DigestView: React.FC = () => {
   const [smtp, setSmtp] = useState<SmtpSettings>({
     host: 'smtp.gmail.com',
     port: 587,
-    username: '',
+    username: 'nati.nissim@gmail.com',
     password: '',
     auth: true,
     starttls: true,

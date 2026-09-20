@@ -45,7 +45,7 @@ public class DailyDigestService {
     @Value("${digest.email.recipient:bill.nissim@gmail.com}")
     private String defaultRecipient;
 
-    @Value("${digest.email.sender:noreply@eventix.com}")
+    @Value("${digest.email.sender:nati.nissim@gmail.com}")
     private String defaultSender;
 
     // Daily in-memory accumulators for streaming events
@@ -256,16 +256,40 @@ public class DailyDigestService {
         String htmlContent = buildHtmlReport(today, orders, confirmed, failed, revenue, errors, warnings, purchases, searches, activities);
         String status = "SENT";
 
+        if (mailSender instanceof JavaMailSenderImpl impl) {
+            if (impl.getPassword() == null || impl.getPassword().isBlank()) {
+                String senderEmail = (impl.getUsername() != null && !impl.getUsername().isBlank()) ? impl.getUsername() : defaultSender;
+                String errorMsg = "Google App Password missing for " + senderEmail + ". Please enter the 16-character App Password in /digest or set SPRING_MAIL_PASSWORD.";
+                log.warn("Cannot send email: {}", errorMsg);
+                status = "FAILED: " + errorMsg;
+
+                DailyDigestRecord record = new DailyDigestRecord(
+                    UUID.randomUUID().toString(),
+                    today,
+                    orders,
+                    confirmed,
+                    failed,
+                    revenue,
+                    errors,
+                    warnings,
+                    effectiveRecipient,
+                    status,
+                    Instant.now()
+                );
+                return digestRepository.save(record);
+            }
+        }
+
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(defaultSender);
+            helper.setFrom(defaultSender, "Project Eventix Operations");
             helper.setTo(effectiveRecipient);
             helper.setSubject("📊 Eventix Daily Digest Report - " + today + " | Customer Activity & Purchases");
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
-            log.info("Successfully sent Daily Digest email to {}", effectiveRecipient);
+            log.info("Successfully sent Daily Digest email from {} to {}", defaultSender, effectiveRecipient);
         } catch (Exception e) {
             String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             log.error("Failed to send Daily Digest email to {}: {}", effectiveRecipient, errorMsg, e);
@@ -291,19 +315,20 @@ public class DailyDigestService {
 
     public SmtpConfigDto getSmtpConfig() {
         if (mailSender instanceof JavaMailSenderImpl impl) {
+            String effectiveUser = (impl.getUsername() != null && !impl.getUsername().isBlank()) ? impl.getUsername() : "nati.nissim@gmail.com";
             boolean hasUser = impl.getUsername() != null && !impl.getUsername().isBlank();
             boolean hasPass = impl.getPassword() != null && !impl.getPassword().isBlank();
             return new SmtpConfigDto(
                 impl.getHost() != null ? impl.getHost() : "smtp.gmail.com",
                 impl.getPort() > 0 ? impl.getPort() : 587,
-                impl.getUsername() != null ? impl.getUsername() : "",
+                effectiveUser,
                 hasPass ? "••••••••••••••••" : "",
                 true,
                 true,
                 hasUser && hasPass
             );
         }
-        return new SmtpConfigDto("smtp.gmail.com", 587, "", "", true, true, false);
+        return new SmtpConfigDto("smtp.gmail.com", 587, "nati.nissim@gmail.com", "", true, true, false);
     }
 
     public SmtpConfigDto updateSmtpConfig(SmtpConfigDto dto) {

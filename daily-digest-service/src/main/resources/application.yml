@@ -25,7 +25,7 @@ spring:
   mail:
     host: ${SPRING_MAIL_HOST:${MAIL_HOST:smtp.gmail.com}}
     port: ${SPRING_MAIL_PORT:${MAIL_PORT:587}}
-    username: ${SPRING_MAIL_USERNAME:}
+    username: ${SPRING_MAIL_USERNAME:nati.nissim@gmail.com}
     password: ${SPRING_MAIL_PASSWORD:}
     properties:
       mail:
@@ -48,7 +48,7 @@ digest:
   cron: "0 0 23 * * ?"
   email:
     recipient: ${DIGEST_RECIPIENT:bill.nissim@gmail.com}
-    sender: noreply@eventix.com
+    sender: ${DIGEST_SENDER:nati.nissim@gmail.com}
 
 management:
   endpoints:
