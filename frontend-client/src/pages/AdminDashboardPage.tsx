@@ -16,7 +16,8 @@ import {
   ShoppingBag,
   ExternalLink,
   Tag,
-  AlertTriangle
+  AlertTriangle,
+  UserPlus
 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { Product, OrderResponse } from '../types';
@@ -467,6 +468,34 @@ export const AdminDashboardPage: React.FC = () => {
                 className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold transition-colors"
               >
                 Manage Digest
+              </Link>
+            </div>
+          </div>
+
+          {/* Card 4: Staff & Administrator Provisioning */}
+          <div className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-3xl p-6 flex flex-col justify-between space-y-6 transition-all group">
+            <div className="space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 group-hover:scale-105 transition-transform">
+                <UserPlus className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+                  Staff & Admin Provisioning
+                  <ArrowUpRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
+                </h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Provision new administrative team members through the isolated root portal using the organization's master security token.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between">
+              <span className="text-[11px] text-amber-400 font-semibold">Master Token Required</span>
+              <Link
+                to="/admin/provision"
+                className="px-3.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-semibold transition-colors"
+              >
+                Provision Staff
               </Link>
             </div>
           </div>

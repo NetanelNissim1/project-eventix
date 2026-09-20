@@ -13,7 +13,6 @@ export const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<'ROLE_CUSTOMER' | 'ROLE_ADMIN'>('ROLE_CUSTOMER');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,10 +35,8 @@ export const RegisterPage: React.FC = () => {
     setLoading(true);
 
     setTimeout(() => {
-      const roles: string[] = [role];
-      if (role === 'ROLE_ADMIN') {
-        roles.push('ROLE_AUDITOR');
-      }
+      // Standard customer registration only
+      const roles: string[] = ['ROLE_CUSTOMER'];
 
       // Generate simulated stateless JWT token
       const header = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
@@ -154,35 +151,6 @@ export const RegisterPage: React.FC = () => {
                 placeholder="••••••••"
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
               />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold text-slate-400 block mb-1">ROLE PERMISSIONS</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setRole('ROLE_CUSTOMER')}
-                className={`p-2 rounded-xl text-xs font-bold border transition-all ${
-                  role === 'ROLE_CUSTOMER'
-                    ? 'bg-sky-500/20 border-sky-500 text-sky-300'
-                    : 'bg-slate-950 border-slate-800 text-slate-400'
-                }`}
-              >
-                Customer
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setRole('ROLE_ADMIN')}
-                className={`p-2 rounded-xl text-xs font-bold border transition-all ${
-                  role === 'ROLE_ADMIN'
-                    ? 'bg-amber-500/20 border-amber-500 text-amber-300'
-                    : 'bg-slate-950 border-slate-800 text-slate-400'
-                }`}
-              >
-                Administrator
-              </button>
             </div>
           </div>
 

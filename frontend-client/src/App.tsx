@@ -23,6 +23,7 @@ import { SystemHealthPage } from './pages/SystemHealthPage';
 import { SupportFaqPage } from './pages/SupportFaqPage';
 import { OrderConfirmationPage } from './pages/OrderConfirmationPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { AdminRegisterPage } from './pages/AdminRegisterPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 export const App: React.FC = () => {
@@ -55,6 +56,8 @@ export const App: React.FC = () => {
             {/* Auth & Security */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/admin/provision" element={<AdminRegisterPage />} />
+            <Route path="/admin/register" element={<AdminRegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ForgotPasswordPage />} />
 
