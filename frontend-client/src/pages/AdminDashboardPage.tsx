@@ -4,7 +4,6 @@ import { useAuthStore } from '../store/useAuthStore';
 import { 
   ShieldCheck, 
   Activity, 
-  Server, 
   Boxes, 
   ArrowUpRight, 
   Lock, 
@@ -15,9 +14,15 @@ import {
   Package,
   ShoppingBag,
   ExternalLink,
-  Tag,
   AlertTriangle,
-  UserPlus
+  UserPlus,
+  Tag,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  Mail,
+  Send,
+  ShoppingCart
 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { Product, OrderResponse } from '../types';
@@ -70,6 +75,10 @@ export const AdminDashboardPage: React.FC = () => {
   const [orders, setOrders] = useState<OrderResponse[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('ALL');
+  const [orderSearchTerm, setOrderSearchTerm] = useState<string>('');
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [triggeringQuickDigest, setTriggeringQuickDigest] = useState(false);
+  const [quickDigestMsg, setQuickDigestMsg] = useState<string | null>(null);
 
   // Load products
   const fetchProducts = async () => {
@@ -284,9 +293,39 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
-  const filteredOrders = orderStatusFilter === 'ALL'
-    ? orders
-    : orders.filter((o) => o.status === orderStatusFilter);
+  const handleQuickDigest = async () => {
+    setTriggeringQuickDigest(true);
+    setQuickDigestMsg(null);
+    try {
+      const res = await apiClient.post('/api/v1/digest/trigger-now?recipient=bill.nissim@gmail.com');
+      if (res.status === 200) {
+        setQuickDigestMsg('Digest report dispatched to bill.nissim@gmail.com! Preview at Mailpit: http://localhost:8025');
+      } else {
+        setQuickDigestMsg('Failed to dispatch digest report');
+      }
+    } catch {
+      setQuickDigestMsg('Network error dispatching digest report');
+    } finally {
+      setTriggeringQuickDigest(false);
+    }
+  };
+
+  const filteredOrders = orders.filter((o) => {
+    const matchesStatus = orderStatusFilter === 'ALL' || o.status === orderStatusFilter;
+    const term = orderSearchTerm.trim().toLowerCase();
+    if (!term) return matchesStatus;
+    const matchesEmail = o.customerEmail?.toLowerCase().includes(term);
+    const matchesId = o.id?.toLowerCase().includes(term);
+    const matchesItems = o.items?.some((it) => it.productName.toLowerCase().includes(term));
+    return matchesStatus && (matchesEmail || matchesId || matchesItems);
+  });
+
+  // Shopping Surveillance Metrics
+  const totalOrdersCount = orders.length;
+  const confirmedOrders = orders.filter((o) => o.status === 'CONFIRMED');
+  const totalConfirmedRevenue = confirmedOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+  const avgOrderValue = confirmedOrders.length > 0 ? totalConfirmedRevenue / confirmedOrders.length : 0;
+  const confirmationRate = totalOrdersCount > 0 ? Math.round((confirmedOrders.length / totalOrdersCount) * 100) : 0;
 
   return (
     <div className="space-y-8 pb-16">
@@ -448,26 +487,52 @@ export const AdminDashboardPage: React.FC = () => {
           <div className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-3xl p-6 flex flex-col justify-between space-y-6 transition-all group">
             <div className="space-y-4">
               <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:scale-105 transition-transform">
-                <Server className="w-6 h-6" />
+                <Mail className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white mb-1 flex items-center gap-2">
-                  Daily Financial Digest
-                  <ArrowUpRight className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-colors" />
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+                    Daily Operations & Purchases Digest
+                    <ArrowUpRight className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-colors" />
+                  </h3>
+                </div>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Scheduled batch aggregation compiling total revenue, confirmed order ratios, and dispatching HTML reports to Mailpit.
+                  Automated end-of-day summary delivering customer purchases, catalog search logs, and activity streams directly to <span className="text-sky-300 font-mono font-semibold">bill.nissim@gmail.com</span>.
                 </p>
+
+                {quickDigestMsg && (
+                  <div className="mt-2 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px] font-semibold flex items-center gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>{quickDigestMsg}</span>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between">
-              <span className="text-[11px] text-indigo-400 font-semibold">Mailpit 1025/8025</span>
+            <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between gap-2">
+              <button
+                onClick={handleQuickDigest}
+                disabled={triggeringQuickDigest}
+                className="px-3 py-1.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 inline-flex items-center gap-1.5 shadow-md shadow-sky-500/10"
+              >
+                {triggeringQuickDigest ? (
+                  <>
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                    <span>Sending...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3 h-3" />
+                    <span>Send Now</span>
+                  </>
+                )}
+              </button>
+
               <Link
                 to="/digest"
-                className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold transition-colors"
+                className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-semibold transition-colors"
               >
-                Manage Digest
+                Scheduler & Settings
               </Link>
             </div>
           </div>
@@ -828,10 +893,16 @@ export const AdminDashboardPage: React.FC = () => {
       {/* TAB 4: GLOBAL ORDERS */}
       {activeTab === 'orders' && (
         <div className="space-y-6">
+          {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-xl font-bold text-white">Global Order Surveillance</h2>
-              <p className="text-xs text-slate-400">Centralized view across all customer transactions and Saga progression states</p>
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 text-sky-400" />
+                Customer Purchases & Order Surveillance
+              </h2>
+              <p className="text-xs text-slate-400">
+                Centralized surveillance across all customer transactions, itemized carts, and Saga orchestration states
+              </p>
             </div>
 
             <div className="flex items-center gap-2 self-start">
@@ -842,7 +913,7 @@ export const AdminDashboardPage: React.FC = () => {
                 <RefreshCw className={`w-3 h-3 ${loadingOrders ? 'animate-spin' : ''}`} /> Refresh
               </button>
 
-              {/* Filter Buttons */}
+              {/* Status Filters */}
               <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 p-1 rounded-2xl">
                 {['ALL', 'CONFIRMED', 'PENDING', 'CANCELLED'].map((status) => (
                   <button
@@ -861,7 +932,54 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Orders Table */}
+          {/* Customer Shopping Surveillance KPI Metrics Ribbon */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl">
+              <div className="text-[10px] text-slate-400 uppercase font-mono font-bold tracking-wider">Total Customer Orders</div>
+              <div className="text-xl font-black text-white font-mono mt-1">{totalOrdersCount}</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Surveillance scope</div>
+            </div>
+
+            <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl">
+              <div className="text-[10px] text-slate-400 uppercase font-mono font-bold tracking-wider">Confirmed Revenue</div>
+              <div className="text-xl font-black text-emerald-400 font-mono mt-1">${totalConfirmedRevenue.toFixed(2)}</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">{confirmedOrders.length} successful transactions</div>
+            </div>
+
+            <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl">
+              <div className="text-[10px] text-slate-400 uppercase font-mono font-bold tracking-wider">Average Order Value (AOV)</div>
+              <div className="text-xl font-black text-sky-400 font-mono mt-1">${avgOrderValue.toFixed(2)}</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Per confirmed cart</div>
+            </div>
+
+            <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl">
+              <div className="text-[10px] text-slate-400 uppercase font-mono font-bold tracking-wider">Confirmation Rate</div>
+              <div className="text-xl font-black text-indigo-400 font-mono mt-1">{confirmationRate}%</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Saga completion success</div>
+            </div>
+          </div>
+
+          {/* Customer Search & Filter Bar */}
+          <div className="p-3 bg-slate-900 border border-slate-800 rounded-2xl flex items-center gap-3">
+            <Search className="w-4 h-4 text-slate-400 shrink-0 ml-2" />
+            <input
+              type="text"
+              value={orderSearchTerm}
+              onChange={(e) => setOrderSearchTerm(e.target.value)}
+              placeholder="Search purchases by customer email, order reference ID, or purchased product name..."
+              className="w-full bg-transparent border-none text-xs text-white placeholder-slate-500 focus:outline-none"
+            />
+            {orderSearchTerm && (
+              <button
+                onClick={() => setOrderSearchTerm('')}
+                className="text-[10px] text-slate-400 hover:text-white px-2 py-1 bg-slate-800 rounded-lg mr-1 font-semibold"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* Orders Table with Itemized Expansion */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -869,6 +987,7 @@ export const AdminDashboardPage: React.FC = () => {
                   <tr>
                     <th className="px-6 py-4">Order Reference</th>
                     <th className="px-6 py-4">Customer Email</th>
+                    <th className="px-6 py-4">Purchased Items</th>
                     <th className="px-6 py-4">Total Amount</th>
                     <th className="px-6 py-4">Saga Status</th>
                     <th className="px-6 py-4">Created At</th>
@@ -878,58 +997,118 @@ export const AdminDashboardPage: React.FC = () => {
                 <tbody className="divide-y divide-slate-800/60">
                   {filteredOrders.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-slate-500 text-xs">
-                        No orders matching status "{orderStatusFilter}".
+                      <td colSpan={7} className="px-6 py-8 text-center text-slate-500 text-xs">
+                        No customer purchases matching status "{orderStatusFilter}" and search query.
                       </td>
                     </tr>
                   ) : (
-                    filteredOrders.map((ord) => (
-                      <tr key={ord.id} className="hover:bg-slate-800/30 transition-colors">
-                        <td className="px-6 py-4 font-mono font-bold text-white">
-                          #{ord.id.substring(0, 13)}...
-                        </td>
-                        <td className="px-6 py-4 text-slate-300">
-                          {ord.customerEmail || 'customer@eventix.io'}
-                        </td>
-                        <td className="px-6 py-4 font-mono font-bold text-emerald-400">
-                          ${Number(ord.totalAmount).toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${
-                              ord.status === 'CONFIRMED'
-                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                                : ord.status === 'PENDING'
-                                ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                                : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-                            }`}
-                          >
-                            {ord.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-slate-400 text-[11px]">
-                          {new Date(ord.createdAt).toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Link
-                              to={`/orders/${ord.id}/status`}
-                              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-lg text-[11px] font-semibold transition-colors inline-flex items-center gap-1"
-                              title="Monitor Saga Steps"
-                            >
-                              <Activity className="w-3 h-3" /> Saga
-                            </Link>
-                            <Link
-                              to={`/orders/${ord.id}/confirmation`}
-                              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[11px] font-semibold transition-colors"
-                              title="View Invoice Receipt"
-                            >
-                              Receipt
-                            </Link>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                    filteredOrders.map((ord) => {
+                      const isExpanded = expandedOrderId === ord.id;
+                      const itemCount = ord.items?.length || 0;
+
+                      return (
+                        <React.Fragment key={ord.id}>
+                          <tr className="hover:bg-slate-800/30 transition-colors">
+                            <td className="px-6 py-4 font-mono font-bold text-white">
+                              #{ord.id.substring(0, 13)}...
+                            </td>
+                            <td className="px-6 py-4 text-slate-300">
+                              <span className="font-medium text-white">{ord.customerEmail || 'customer@eventix.io'}</span>
+                              <div className="text-[10px] text-slate-500 font-mono">ID: {ord.customerId || 'cust-direct'}</div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <button
+                                onClick={() => setExpandedOrderId(isExpanded ? null : ord.id)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-lg text-[11px] font-semibold transition-colors"
+                              >
+                                <ShoppingCart className="w-3 h-3" />
+                                <span>{itemCount} {itemCount === 1 ? 'item' : 'items'}</span>
+                                {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                              </button>
+                            </td>
+                            <td className="px-6 py-4 font-mono font-bold text-emerald-400">
+                              ${Number(ord.totalAmount).toFixed(2)}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span
+                                className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${
+                                  ord.status === 'CONFIRMED'
+                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                                    : ord.status === 'PENDING'
+                                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                                    : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                                }`}
+                              >
+                                {ord.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-slate-400 text-[11px]">
+                              {new Date(ord.createdAt).toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Link
+                                  to={`/orders/${ord.id}/status`}
+                                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-lg text-[11px] font-semibold transition-colors inline-flex items-center gap-1"
+                                  title="Monitor Saga Steps"
+                                >
+                                  <Activity className="w-3 h-3" /> Saga
+                                </Link>
+                                <Link
+                                  to={`/orders/${ord.id}/confirmation`}
+                                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[11px] font-semibold transition-colors"
+                                  title="View Invoice Receipt"
+                                >
+                                  Receipt
+                                </Link>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* Expanded Itemized Purchase Details */}
+                          {isExpanded && (
+                            <tr className="bg-slate-950/70 border-b border-slate-800">
+                              <td colSpan={7} className="px-6 py-4">
+                                <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-3 animate-fade-in">
+                                  <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
+                                    <span className="font-bold text-white flex items-center gap-2">
+                                      <ShoppingCart className="w-3.5 h-3.5 text-sky-400" />
+                                      Itemized Cart Contents for Order #{ord.id}
+                                    </span>
+                                    <span className="text-slate-400 font-mono text-[11px]">
+                                      Customer: <strong className="text-slate-200">{ord.customerEmail || 'customer@eventix.io'}</strong>
+                                    </span>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 divide-y divide-slate-800/60 text-xs font-mono">
+                                    {ord.items && ord.items.length > 0 ? (
+                                      ord.items.map((it, idx) => (
+                                        <div key={idx} className="py-2 flex items-center justify-between">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-sky-400 font-bold">&bull;</span>
+                                            <span className="font-sans font-medium text-white">{it.productName}</span>
+                                            <span className="text-[10px] text-slate-500">({it.productId})</span>
+                                          </div>
+                                          <div className="flex items-center gap-4">
+                                            <span className="text-slate-400 font-sans">Qty: <strong className="text-white">{it.quantity}</strong></span>
+                                            <span className="text-slate-400 font-sans">Unit: <strong className="text-white">${Number(it.unitPrice).toFixed(2)}</strong></span>
+                                            <span className="text-emerald-400 font-bold">${(it.quantity * Number(it.unitPrice)).toFixed(2)}</span>
+                                          </div>
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div className="py-2 text-slate-500 italic text-[11px] font-sans">
+                                        No itemized rows found for this order.
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

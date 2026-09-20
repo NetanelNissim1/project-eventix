@@ -41,7 +41,7 @@ spring:
 digest:
   cron: "0 0 23 * * ?"
   email:
-    recipient: admin@eventix.com
+    recipient: ${DIGEST_RECIPIENT:bill.nissim@gmail.com}
     sender: noreply@eventix.com
 
 management:

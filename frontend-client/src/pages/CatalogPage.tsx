@@ -61,6 +61,19 @@ export const CatalogPage: React.FC = () => {
     if (q !== null) setSearchQuery(q);
   }, [searchParams]);
 
+  // Log customer search query to daily digest activity stream
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim().length < 2) return;
+    const timer = setTimeout(() => {
+      apiClient.post('/api/v1/digest/record-activity', {
+        action: 'SEARCH',
+        customerEmail: 'shopper@eventix.io',
+        details: searchQuery.trim(),
+      }).catch(() => { /* fire and forget */ });
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const handleCategoryChange = (catId: string) => {
     setSelectedCategory(catId);
     setCurrentPage(1);

@@ -103,3 +103,17 @@ export interface DailyDigest {
   status: string;
   generatedAt: string;
 }
+
+export interface DigestScheduleConfig {
+  scheduleType: 'RECURRING' | 'ONE_OFF' | 'DISABLED';
+  recurringFrequency: 'DAILY' | 'WEEKLY';
+  targetHour: number;
+  targetMinute: number;
+  targetDayOfWeek: string;
+  oneOffDateTime?: string;
+  recipient: string;
+  active: boolean;
+  lastRun?: string;
+  nextRunDescription?: string;
+}
+
