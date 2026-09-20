@@ -23,6 +23,26 @@ export const DigestView: React.FC = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [smtpMsg, setSmtpMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Digest microservice endpoint configuration
+  const [digestApiBase, setDigestApiBase] = useState<string>(() => {
+    return localStorage.getItem('eventix_digest_api_base') || '';
+  });
+
+  const getDigestUrl = (path: string) => {
+    const base = digestApiBase.trim().replace(/\/+$/, '');
+    return base ? `${base}${path}` : path;
+  };
+
+  const handleUpdateApiBase = (val: string) => {
+    const clean = val.trim().replace(/\/+$/, '');
+    setDigestApiBase(clean);
+    if (clean) {
+      localStorage.setItem('eventix_digest_api_base', clean);
+    } else {
+      localStorage.removeItem('eventix_digest_api_base');
+    }
+  };
+
   // Schedule state
   const [schedule, setSchedule] = useState<DigestScheduleConfig>({
     scheduleType: 'RECURRING',
@@ -60,7 +80,7 @@ export const DigestView: React.FC = () => {
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get('/api/v1/digest/history');
+      const res = await apiClient.get(getDigestUrl('/api/v1/digest/history'));
       if (Array.isArray(res.data)) {
         setHistory(res.data);
       } else {
@@ -76,7 +96,7 @@ export const DigestView: React.FC = () => {
 
   const fetchSchedule = async () => {
     try {
-      const res = await apiClient.get('/api/v1/digest/schedule');
+      const res = await apiClient.get(getDigestUrl('/api/v1/digest/schedule'));
       if (res.data && typeof res.data === 'object' && !Array.isArray(res.data)) {
         setSchedule((prev) => ({ ...prev, ...res.data }));
       }
@@ -87,7 +107,7 @@ export const DigestView: React.FC = () => {
 
   const fetchSmtp = async () => {
     try {
-      const res = await apiClient.get('/api/v1/digest/smtp');
+      const res = await apiClient.get(getDigestUrl('/api/v1/digest/smtp'));
       if (res.data && typeof res.data === 'object' && !Array.isArray(res.data)) {
         setSmtp((prev) => ({
           ...prev,
@@ -101,7 +121,7 @@ export const DigestView: React.FC = () => {
 
   const fetchTodaySummary = async () => {
     try {
-      const res = await apiClient.get('/api/v1/digest/today-summary');
+      const res = await apiClient.get(getDigestUrl('/api/v1/digest/today-summary'));
       if (res.data && typeof res.data === 'object' && !Array.isArray(res.data)) {
         setTodaySummary({
           purchases: Array.isArray(res.data.purchases) ? res.data.purchases : [],
@@ -119,7 +139,12 @@ export const DigestView: React.FC = () => {
     setMessage(null);
     try {
       const recipient = schedule.recipient || 'bill.nissim@gmail.com';
-      const res = await apiClient.post(`/api/v1/digest/trigger-now?recipient=${encodeURIComponent(recipient)}`);
+      const endpoint = getDigestUrl(`/api/v1/digest/trigger-now?recipient=${encodeURIComponent(recipient)}`);
+      const res = await apiClient.post(endpoint);
+      if (typeof res.data === 'string' && (res.data.includes('<!doctype') || res.data.includes('<html'))) {
+        setMessage(`⚠️ Backend endpoint returned HTML from web server. Please check 'daily-digest-service' is running.`);
+        return;
+      }
       if (res.status === 200) {
         const record = res.data;
         if (record?.status === 'SENT') {
@@ -144,7 +169,7 @@ export const DigestView: React.FC = () => {
     setSavingSchedule(true);
     setMessage(null);
     try {
-      const res = await apiClient.post('/api/v1/digest/schedule', schedule);
+      const res = await apiClient.post(getDigestUrl('/api/v1/digest/schedule'), schedule);
       if (res.status === 200) {
         setSchedule(res.data);
         setMessage('Email schedule settings successfully saved and activated!');
@@ -166,7 +191,14 @@ export const DigestView: React.FC = () => {
         username: (smtp.username || 'nati.nissim@gmail.com').trim(),
         password: (smtp.password || '').replace(/\s+/g, '').trim(),
       };
-      const res = await apiClient.post('/api/v1/digest/smtp', cleanSmtp);
+      const res = await apiClient.post(getDigestUrl('/api/v1/digest/smtp'), cleanSmtp);
+      if (typeof res.data === 'string' && (res.data.includes('<!doctype') || res.data.includes('<html'))) {
+        setSmtpMsg({
+          type: 'error',
+          text: `⚠️ Request reached the frontend web server (${window.location.origin}) which returned HTML instead of daily-digest-service. Configure the endpoint below.`,
+        });
+        return false;
+      }
       if (res.status === 200 && res.data) {
         setSmtp((prev) => ({
           ...prev,
@@ -202,10 +234,18 @@ export const DigestView: React.FC = () => {
         password: (smtp.password || '').replace(/\s+/g, '').trim(),
       };
       const recipient = schedule.recipient || 'bill.nissim@gmail.com';
-      const res = await apiClient.post(
-        `/api/v1/digest/smtp/test?recipient=${encodeURIComponent(recipient)}`,
-        cleanSmtp
-      );
+      const endpoint = getDigestUrl(`/api/v1/digest/smtp/test?recipient=${encodeURIComponent(recipient)}`);
+      const res = await apiClient.post(endpoint, cleanSmtp);
+
+      // Explicit detection if response is HTML from an SPA web server fallback
+      if (typeof res.data === 'string' && (res.data.includes('<!doctype') || res.data.includes('<html'))) {
+        setSmtpMsg({
+          type: 'error',
+          text: `⚠️ Request reached the frontend web server (${window.location.origin}) which returned HTML instead of daily-digest-service. If running locally, set the Endpoint below to 'http://localhost:8087'. If deployed on Railway, enter the daily-digest-service Railway URL.`,
+        });
+        return;
+      }
+
       if (res.data?.success) {
         setSmtp((prev) => ({ ...prev, configured: true }));
         setSmtpMsg({ type: 'success', text: res.data.message });
@@ -216,7 +256,10 @@ export const DigestView: React.FC = () => {
         });
       }
     } catch (err: any) {
-      setSmtpMsg({ type: 'error', text: 'SMTP test request failed: ' + (err.message || 'network error') });
+      setSmtpMsg({
+        type: 'error',
+        text: 'SMTP test request failed: ' + (err.response?.data?.message || err.message || 'network error'),
+      });
     } finally {
       setTestingSmtp(false);
     }
@@ -558,6 +601,46 @@ export const DigestView: React.FC = () => {
               <strong className="text-slate-200">כיצד מייצרים סיסמת אפליקציה לשליחה דרך Gmail:</strong><br />
               היכנס לחשבון הגוגל שלך &rarr; לשונית <strong>אבטחה (Security)</strong> &rarr; ודא שאימות דו-שלבי (2-Step Verification) פעיל &rarr; חפש <strong>סיסמאות לאפליקציות (App Passwords)</strong> &rarr; צור סיסמה בשם "Eventix" והדבק כאן את 16 האותיות (או הגדר כמשתנה סביבה <code className="text-sky-300 font-mono">SPRING_MAIL_PASSWORD</code> ב-Railway).
             </div>
+          </div>
+
+          {/* Direct Microservice Endpoint Override */}
+          <div className="p-3.5 bg-slate-950/70 border border-slate-800 rounded-2xl text-xs space-y-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <label className="text-slate-300 font-semibold flex items-center gap-1.5">
+                <span>DIGEST SERVICE BACKEND ENDPOINT (כתובת שרת המיקרו-שירות)</span>
+                {digestApiBase && (
+                  <span className="px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 font-mono text-[10px] font-bold border border-sky-500/20">
+                    Custom URL Active
+                  </span>
+                )}
+              </label>
+              <div className="flex items-center gap-1.5 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => handleUpdateApiBase('http://localhost:8087')}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded-lg font-mono transition-colors font-semibold"
+                >
+                  Local (localhost:8087)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUpdateApiBase('')}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors font-semibold"
+                >
+                  Default (Relative)
+                </button>
+              </div>
+            </div>
+            <input
+              type="text"
+              value={digestApiBase}
+              onChange={(e) => handleUpdateApiBase(e.target.value)}
+              placeholder="e.g. http://localhost:8087 (Local) or https://daily-digest-service-xxx.up.railway.app (Railway)"
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono placeholder-slate-500 focus:outline-none focus:border-sky-500 text-xs"
+            />
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              💡 <strong>טיפ חיבור:</strong> אם שירות <code className="text-sky-300 font-mono">daily-digest-service</code> רץ אצלך במחשב (פורט 8087), לחץ על <strong>Local (localhost:8087)</strong> כדי שהדפדפן ישלח את בדיקת ה-SMTP ישירות לשרת שלך. אם פרסת אותו בענן ב-Railway, הדבק כאן את כתובת ה-URL של השירות.
+            </p>
           </div>
 
           <div className="flex items-center justify-between pt-2">
