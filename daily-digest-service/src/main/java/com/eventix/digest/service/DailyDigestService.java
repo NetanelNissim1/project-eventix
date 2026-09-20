@@ -339,41 +339,71 @@ public class DailyDigestService {
             if (dto.getPort() > 0) {
                 impl.setPort(dto.getPort());
             }
-            if (dto.getUsername() != null) {
-                impl.setUsername(dto.getUsername().trim());
-                if (dto.getUsername().contains("@")) {
-                    this.defaultSender = dto.getUsername().trim();
+            if (dto.getUsername() != null && !dto.getUsername().isBlank()) {
+                String cleanUser = dto.getUsername().trim();
+                impl.setUsername(cleanUser);
+                if (cleanUser.contains("@")) {
+                    this.defaultSender = cleanUser;
                 }
             }
             if (dto.getPassword() != null && !dto.getPassword().isBlank() && !dto.getPassword().contains("••••")) {
-                impl.setPassword(dto.getPassword().trim());
+                String cleanPass = dto.getPassword().replaceAll("\\s+", "").trim();
+                impl.setPassword(cleanPass);
             }
             Properties props = impl.getJavaMailProperties();
             props.put("mail.smtp.auth", "true");
-            props.put("mail.smtp.starttls.enable", "true");
-            props.put("mail.smtp.connectiontimeout", "7000");
-            props.put("mail.smtp.timeout", "7000");
-            props.put("mail.smtp.writetimeout", "7000");
+            if (impl.getPort() == 465) {
+                props.put("mail.smtp.ssl.enable", "true");
+                props.put("mail.smtp.socketFactory.port", "465");
+                props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
+                props.put("mail.smtp.starttls.enable", "false");
+            } else {
+                props.put("mail.smtp.ssl.enable", "false");
+                props.put("mail.smtp.starttls.enable", "true");
+                props.put("mail.smtp.starttls.required", "true");
+            }
+            props.put("mail.smtp.ssl.protocols", "TLSv1.2 TLSv1.3");
+            props.put("mail.smtp.ssl.trust", impl.getHost() != null ? impl.getHost() : "smtp.gmail.com");
+            props.put("mail.smtp.connectiontimeout", "10000");
+            props.put("mail.smtp.timeout", "10000");
+            props.put("mail.smtp.writetimeout", "10000");
             impl.setJavaMailProperties(props);
-            log.info("Updated dynamic SMTP configuration: host={}, port={}, user={}", impl.getHost(), impl.getPort(), impl.getUsername());
+            log.info("Updated dynamic SMTP configuration: host={}, port={}, user={}, passConfigured={}",
+                impl.getHost(), impl.getPort(), impl.getUsername(), impl.getPassword() != null && !impl.getPassword().isBlank());
         }
         return getSmtpConfig();
     }
 
     public Map<String, Object> testSmtpConnection(String recipient) {
         String testTarget = (recipient != null && !recipient.isBlank()) ? recipient : defaultRecipient;
+        if (mailSender instanceof JavaMailSenderImpl impl) {
+            if (impl.getPassword() == null || impl.getPassword().isBlank()) {
+                return Map.of(
+                    "success", false,
+                    "message", "Google App Password is not set! Please enter your 16-character App Password in the field and click Save/Test."
+                );
+            }
+        }
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
-            helper.setFrom(defaultSender);
+            String sender = defaultSender;
+            if (mailSender instanceof JavaMailSenderImpl impl && impl.getUsername() != null && !impl.getUsername().isBlank()) {
+                sender = impl.getUsername();
+            }
+            helper.setFrom(sender);
             helper.setTo(testTarget);
             helper.setSubject("✅ Eventix SMTP Connection Verified");
-            helper.setText("Congratulations! This automated test confirms that Project Eventix is successfully connected to your SMTP mail server and can deliver real emails directly to " + testTarget + ".");
+            helper.setText("Congratulations! This automated test confirms that Project Eventix is successfully connected to your SMTP mail server (" + sender + ") and can deliver real emails directly to " + testTarget + ".");
             mailSender.send(message);
-            log.info("Successfully sent SMTP test email to {}", testTarget);
-            return Map.of("success", true, "message", "SMTP connection test succeeded! Email delivered to " + testTarget);
+            log.info("Successfully sent SMTP test email from {} to {}", sender, testTarget);
+            return Map.of("success", true, "message", "SMTP connection verified! Test email successfully sent from " + sender + " to " + testTarget);
         } catch (Exception e) {
             String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            Throwable cause = e.getCause();
+            if (cause != null && cause.getMessage() != null) {
+                errorMsg = errorMsg + " -> " + cause.getMessage();
+            }
             log.error("SMTP connection test failed to {}: {}", testTarget, errorMsg, e);
             return Map.of("success", false, "message", "SMTP test failed: " + errorMsg);
         }

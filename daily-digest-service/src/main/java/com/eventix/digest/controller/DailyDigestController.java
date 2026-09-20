@@ -48,8 +48,12 @@ public class DailyDigestController {
 
     @PostMapping("/smtp/test")
     public ResponseEntity<Map<String, Object>> testSmtp(
-        @RequestParam(required = false, defaultValue = "bill.nissim@gmail.com") String recipient
+        @RequestParam(required = false, defaultValue = "bill.nissim@gmail.com") String recipient,
+        @RequestBody(required = false) SmtpConfigDto optionalDto
     ) {
+        if (optionalDto != null) {
+            digestService.updateSmtpConfig(optionalDto);
+        }
         return ResponseEntity.ok(digestService.testSmtpConnection(recipient));
     }
 

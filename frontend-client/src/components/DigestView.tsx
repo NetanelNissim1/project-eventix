@@ -156,33 +156,64 @@ export const DigestView: React.FC = () => {
     }
   };
 
-  const handleSaveSmtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveSmtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setSavingSmtp(true);
     setSmtpMsg(null);
     try {
-      const res = await apiClient.post('/api/v1/digest/smtp', smtp);
-      if (res.status === 200) {
-        setSmtp((prev) => ({ ...prev, ...res.data }));
+      const cleanSmtp = {
+        ...smtp,
+        username: (smtp.username || 'nati.nissim@gmail.com').trim(),
+        password: (smtp.password || '').replace(/\s+/g, '').trim(),
+      };
+      const res = await apiClient.post('/api/v1/digest/smtp', cleanSmtp);
+      if (res.status === 200 && res.data) {
+        setSmtp((prev) => ({
+          ...prev,
+          ...res.data,
+          password: cleanSmtp.password ? cleanSmtp.password : prev.password,
+        }));
         setSmtpMsg({ type: 'success', text: 'SMTP mail credentials successfully updated and active!' });
+        return true;
       }
+      return false;
     } catch (err: any) {
       setSmtpMsg({ type: 'error', text: 'Failed to update SMTP configuration: ' + (err.message || 'error') });
+      return false;
     } finally {
       setSavingSmtp(false);
     }
   };
 
   const handleTestSmtp = async () => {
+    if (!smtp.password && !smtp.configured) {
+      setSmtpMsg({
+        type: 'error',
+        text: 'Please paste your 16-character Google App Password in the field above before sending a test ping.',
+      });
+      return;
+    }
     setTestingSmtp(true);
     setSmtpMsg(null);
     try {
+      const cleanSmtp = {
+        ...smtp,
+        username: (smtp.username || 'nati.nissim@gmail.com').trim(),
+        password: (smtp.password || '').replace(/\s+/g, '').trim(),
+      };
       const recipient = schedule.recipient || 'bill.nissim@gmail.com';
-      const res = await apiClient.post(`/api/v1/digest/smtp/test?recipient=${encodeURIComponent(recipient)}`);
+      const res = await apiClient.post(
+        `/api/v1/digest/smtp/test?recipient=${encodeURIComponent(recipient)}`,
+        cleanSmtp
+      );
       if (res.data?.success) {
+        setSmtp((prev) => ({ ...prev, configured: true }));
         setSmtpMsg({ type: 'success', text: res.data.message });
       } else {
-        setSmtpMsg({ type: 'error', text: res.data?.message || 'SMTP test failed. Please check host, port, user and password.' });
+        setSmtpMsg({
+          type: 'error',
+          text: res.data?.message || 'SMTP test failed. Please verify your 16-character Google App Password and username.',
+        });
       }
     } catch (err: any) {
       setSmtpMsg({ type: 'error', text: 'SMTP test request failed: ' + (err.message || 'network error') });
