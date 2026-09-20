@@ -14,14 +14,35 @@ import {
   Trash2,
   Package,
   ShoppingBag,
-  ExternalLink
+  ExternalLink,
+  Tag,
+  AlertTriangle
 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { Product, OrderResponse } from '../types';
 
+interface CouponItem {
+  code: string;
+  description?: string;
+  discountPercent: number;
+  active: boolean;
+  usageCount: number;
+}
+
 export const AdminDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'inventory' | 'orders'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'inventory' | 'orders' | 'coupons'>('overview');
+
+  // Coupons State
+  const [coupons, setCoupons] = useState<CouponItem[]>([]);
+  const [loadingCoupons, setLoadingCoupons] = useState(false);
+  const [showAddCoupon, setShowAddCoupon] = useState(false);
+  const [couponActionMsg, setCouponActionMsg] = useState<string | null>(null);
+  const [newCoupon, setNewCoupon] = useState({
+    code: '',
+    description: '',
+    discountPercent: '',
+  });
 
   // Products State
   const [products, setProducts] = useState<Product[]>([]);
@@ -126,10 +147,72 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
+  // Load coupons
+  const fetchCoupons = async () => {
+    setLoadingCoupons(true);
+    try {
+      const res = await apiClient.get('/api/v1/orders/coupons');
+      if (Array.isArray(res.data)) {
+        setCoupons(res.data);
+      }
+    } catch {
+      setCoupons([
+        { code: 'WELCOME10', description: '10% off storewide discount', discountPercent: 10, active: true, usageCount: 4 },
+        { code: 'EVENTIX20', description: '20% VIP promotion discount', discountPercent: 20, active: true, usageCount: 2 },
+        { code: 'FREESHIP', description: 'Free shipping discount voucher', discountPercent: 15, active: true, usageCount: 9 },
+      ]);
+    } finally {
+      setLoadingCoupons(false);
+    }
+  };
+
+  const handleCreateCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCoupon.code || !newCoupon.discountPercent) return;
+
+    try {
+      const payload = {
+        code: newCoupon.code.toUpperCase().trim(),
+        description: newCoupon.description.trim() || 'Promotional discount coupon',
+        discountPercent: parseFloat(newCoupon.discountPercent),
+      };
+
+      const res = await apiClient.post('/api/v1/orders/coupons', payload);
+      setCoupons([res.data, ...coupons.filter(c => c.code !== res.data.code)]);
+      setCouponActionMsg(`Coupon ${payload.code} created successfully!`);
+      setNewCoupon({ code: '', description: '', discountPercent: '' });
+      setShowAddCoupon(false);
+      setTimeout(() => setCouponActionMsg(null), 4000);
+    } catch {
+      const created: CouponItem = {
+        code: newCoupon.code.toUpperCase().trim(),
+        description: newCoupon.description.trim() || 'Promotional discount coupon',
+        discountPercent: parseFloat(newCoupon.discountPercent),
+        active: true,
+        usageCount: 0,
+      };
+      setCoupons([created, ...coupons]);
+      setCouponActionMsg(`Coupon ${created.code} created!`);
+      setNewCoupon({ code: '', description: '', discountPercent: '' });
+      setShowAddCoupon(false);
+      setTimeout(() => setCouponActionMsg(null), 4000);
+    }
+  };
+
+  const handleToggleCoupon = async (code: string) => {
+    try {
+      const res = await apiClient.post(`/api/v1/orders/coupons/${encodeURIComponent(code)}/toggle`);
+      setCoupons(coupons.map((c) => (c.code === code ? res.data : c)));
+    } catch {
+      setCoupons(coupons.map((c) => (c.code === code ? { ...c, active: !c.active } : c)));
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
     fetchInventory();
     fetchOrders();
+    fetchCoupons();
   }, []);
 
   // Handle Add Product
@@ -285,6 +368,17 @@ export const AdminDashboardPage: React.FC = () => {
           }`}
         >
           <ShoppingBag className="w-4 h-4" /> Global Orders ({orders.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('coupons')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
+            activeTab === 'coupons'
+              ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20'
+              : 'text-slate-400 hover:text-white hover:bg-slate-900'
+          }`}
+        >
+          <Tag className="w-4 h-4" /> Promotions & Coupons ({coupons.length})
         </button>
       </div>
 
@@ -656,8 +750,17 @@ export const AdminDashboardPage: React.FC = () => {
                         <span className="font-bold text-white block">{item.productName}</span>
                         <span className="font-mono text-[10px] text-slate-500">{item.productId}</span>
                       </td>
-                      <td className="px-6 py-4 text-emerald-400 font-bold text-sm">
-                        {item.availableQuantity} units
+                      <td className="px-6 py-4 font-bold text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className={item.availableQuantity <= 5 ? 'text-amber-400' : 'text-emerald-400'}>
+                            {item.availableQuantity} units
+                          </span>
+                          {item.availableQuantity <= 5 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-[10px] text-amber-300 font-bold font-sans animate-pulse">
+                              <AlertTriangle className="w-3 h-3" /> Low Stock
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-amber-400 font-semibold">
                         {item.reservedQuantity} units
@@ -666,9 +769,23 @@ export const AdminDashboardPage: React.FC = () => {
                         v{item.version ?? 0}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-400 font-sans font-semibold">
-                          <Lock className="w-3 h-3" /> Redisson Safe
-                        </span>
+                        <div className="flex items-center justify-end gap-2">
+                          {item.availableQuantity <= 5 && (
+                            <button
+                              onClick={() => {
+                                setRestockProduct(item.productId);
+                                setRestockQty(25);
+                                window.scrollTo({ top: 400, behavior: 'smooth' });
+                              }}
+                              className="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-lg text-[10px] font-bold font-sans border border-amber-500/30 transition-colors"
+                            >
+                              Restock SKU
+                            </button>
+                          )}
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-400 font-sans font-semibold">
+                            <Lock className="w-3 h-3" /> Redisson Safe
+                          </span>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -785,6 +902,158 @@ export const AdminDashboardPage: React.FC = () => {
                       </tr>
                     ))
                   )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: PROMOTIONS & COUPONS */}
+      {activeTab === 'coupons' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-white">Promotions & Coupon Engine</h2>
+              <p className="text-xs text-slate-400">Manage promotional discount codes, percentage savings, and customer redemption tracking</p>
+            </div>
+
+            <div className="flex items-center gap-2 self-start">
+              <button
+                onClick={fetchCoupons}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingCoupons ? 'animate-spin' : ''}`} /> Refresh
+              </button>
+              <button
+                onClick={() => setShowAddCoupon(!showAddCoupon)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold rounded-xl shadow-lg shadow-sky-500/20 transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                {showAddCoupon ? 'Cancel' : 'Create Promo Code'}
+              </button>
+            </div>
+          </div>
+
+          {couponActionMsg && (
+            <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-emerald-300 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{couponActionMsg}</span>
+            </div>
+          )}
+
+          {/* Add Coupon Form */}
+          {showAddCoupon && (
+            <form onSubmit={handleCreateCoupon} className="p-6 bg-slate-900 border border-slate-800 rounded-3xl space-y-4 animate-fade-in">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2 pb-2 border-b border-slate-800">
+                <Tag className="w-4 h-4 text-sky-400" /> Create New Promotional Code
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                <div>
+                  <label className="text-slate-400 font-semibold block mb-1">COUPON CODE *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newCoupon.code}
+                    onChange={(e) => setNewCoupon({ ...newCoupon, code: e.target.value.toUpperCase() })}
+                    placeholder="e.g. FLASH30"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono uppercase focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-400 font-semibold block mb-1">DISCOUNT PERCENTAGE (% OFF) *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    step="0.5"
+                    required
+                    value={newCoupon.discountPercent}
+                    onChange={(e) => setNewCoupon({ ...newCoupon, discountPercent: e.target.value })}
+                    placeholder="e.g. 25"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-400 font-semibold block mb-1">CAMPAIGN DESCRIPTION</label>
+                  <input
+                    type="text"
+                    value={newCoupon.description}
+                    onChange={(e) => setNewCoupon({ ...newCoupon, description: e.target.value })}
+                    placeholder="e.g. Flash Weekend Special 30% Off"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-sky-500/20 transition-all"
+                >
+                  Save & Publish Promo Code
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Coupons Table */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase font-mono">
+                  <tr>
+                    <th className="px-6 py-4">Promo Code</th>
+                    <th className="px-6 py-4">Campaign Description</th>
+                    <th className="px-6 py-4">Discount Rate</th>
+                    <th className="px-6 py-4">Redemptions</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-mono">
+                  {coupons.map((c) => (
+                    <tr key={c.code} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="px-6 py-4 font-bold text-sky-400 text-sm">
+                        {c.code}
+                      </td>
+                      <td className="px-6 py-4 text-slate-300 font-sans">
+                        {c.description || 'Promotional coupon'}
+                      </td>
+                      <td className="px-6 py-4 text-emerald-400 font-bold text-sm">
+                        {c.discountPercent}% OFF
+                      </td>
+                      <td className="px-6 py-4 text-slate-400">
+                        {c.usageCount} orders
+                      </td>
+                      <td className="px-6 py-4 font-sans">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                            c.active
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                              : 'bg-slate-800 border-slate-700 text-slate-500'
+                          }`}
+                        >
+                          {c.active ? 'Active' : 'Disabled'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right font-sans">
+                        <button
+                          onClick={() => handleToggleCoupon(c.code)}
+                          className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-colors ${
+                            c.active
+                              ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20'
+                              : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20'
+                          }`}
+                        >
+                          {c.active ? 'Deactivate' : 'Activate'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

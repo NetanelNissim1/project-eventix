@@ -148,6 +148,11 @@ public class InventoryService {
         return inventoryRepository.findAll();
     }
 
+    @Transactional(readOnly = true)
+    public java.util.Optional<InventoryItem> getStockByProductId(String productId) {
+        return inventoryRepository.findById(productId);
+    }
+
     private void emitInventoryFailed(String orderId, String reason, String traceId) {
         InventoryFailedEvent failedEvent = new InventoryFailedEvent(
             orderId,

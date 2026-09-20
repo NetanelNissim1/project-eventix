@@ -25,6 +25,14 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.eventix.order.dto.CouponResponse;
+import com.eventix.order.dto.CreateCouponRequest;
+import com.eventix.order.entity.CouponEntity;
+import com.eventix.order.repository.CouponRepository;
+import java.math.RoundingMode;
+import java.util.Optional;
+import jakarta.annotation.PostConstruct;
+
 @Service
 public class OrderService {
 
@@ -32,19 +40,36 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OutboxEventRepository outboxEventRepository;
+    private final CouponRepository couponRepository;
     private final ObjectMapper objectMapper;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     public OrderService(
         OrderRepository orderRepository,
         OutboxEventRepository outboxEventRepository,
+        CouponRepository couponRepository,
         ObjectMapper objectMapper,
         KafkaTemplate<String, Object> kafkaTemplate
     ) {
         this.orderRepository = orderRepository;
         this.outboxEventRepository = outboxEventRepository;
+        this.couponRepository = couponRepository;
         this.objectMapper = objectMapper;
         this.kafkaTemplate = kafkaTemplate;
+    }
+
+    @PostConstruct
+    public void initDefaultCoupons() {
+        try {
+            if (couponRepository != null && couponRepository.count() == 0) {
+                couponRepository.save(new CouponEntity("WELCOME10", "10% off storewide discount", new BigDecimal("10.00"), true));
+                couponRepository.save(new CouponEntity("EVENTIX20", "20% VIP promotion discount", new BigDecimal("20.00"), true));
+                couponRepository.save(new CouponEntity("FREESHIP", "Free shipping discount voucher", new BigDecimal("15.00"), true));
+                log.info("Initialized default promotion coupons (WELCOME10, EVENTIX20, FREESHIP)");
+            }
+        } catch (Exception e) {
+            log.warn("Could not auto-seed default coupons: {}", e.getMessage());
+        }
     }
 
     @Transactional
@@ -53,9 +78,24 @@ public class OrderService {
         String orderId = UUID.randomUUID().toString();
         Instant now = Instant.now();
 
-        BigDecimal totalAmount = request.items().stream()
+        BigDecimal subtotal = request.items().stream()
             .map(item -> item.unitPrice().multiply(BigDecimal.valueOf(item.quantity())))
             .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalAmount = subtotal;
+        if (request.couponCode() != null && !request.couponCode().isBlank()) {
+            Optional<CouponEntity> couponOpt = couponRepository.findByCodeIgnoreCaseAndActiveTrue(request.couponCode().toUpperCase().trim());
+            if (couponOpt.isPresent()) {
+                CouponEntity coupon = couponOpt.get();
+                BigDecimal discount = subtotal.multiply(coupon.getDiscountPercent())
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                totalAmount = subtotal.subtract(discount).max(BigDecimal.ZERO);
+                coupon.incrementUsage();
+                couponRepository.save(coupon);
+                log.info("Applied coupon {} ({}% off). Subtotal: {}, Final total: {}",
+                    coupon.getCode(), coupon.getDiscountPercent(), subtotal, totalAmount);
+            }
+        }
 
         OrderEntity order = new OrderEntity(
             orderId,
@@ -167,6 +207,44 @@ public class OrderService {
             .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
             .map(this::mapToResponse)
             .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<CouponResponse> validateCoupon(String code) {
+        if (code == null || code.isBlank()) {
+            return Optional.empty();
+        }
+        return couponRepository.findByCodeIgnoreCaseAndActiveTrue(code.toUpperCase().trim())
+            .map(c -> new CouponResponse(c.getCode(), c.getDescription(), c.getDiscountPercent(), c.isActive(), c.getUsageCount()));
+    }
+
+    @Transactional(readOnly = true)
+    public List<CouponResponse> getAllCoupons() {
+        return couponRepository.findAll().stream()
+            .map(c -> new CouponResponse(c.getCode(), c.getDescription(), c.getDiscountPercent(), c.isActive(), c.getUsageCount()))
+            .toList();
+    }
+
+    @Transactional
+    public CouponResponse createCoupon(CreateCouponRequest req) {
+        CouponEntity coupon = new CouponEntity(
+            req.code().toUpperCase().trim(),
+            req.description() != null ? req.description() : "Promotional discount code",
+            req.discountPercent(),
+            true
+        );
+        CouponEntity saved = couponRepository.save(coupon);
+        return new CouponResponse(saved.getCode(), saved.getDescription(), saved.getDiscountPercent(), saved.isActive(), saved.getUsageCount());
+    }
+
+    @Transactional
+    public Optional<CouponResponse> toggleCoupon(String code) {
+        return couponRepository.findById(code.toUpperCase().trim())
+            .map(c -> {
+                c.setActive(!c.isActive());
+                couponRepository.save(c);
+                return new CouponResponse(c.getCode(), c.getDescription(), c.getDiscountPercent(), c.isActive(), c.getUsageCount());
+            });
     }
 
     private void publishAuditEvent(String traceId, String userId, String ip, AuditLevel level, String action, String details, String error) {

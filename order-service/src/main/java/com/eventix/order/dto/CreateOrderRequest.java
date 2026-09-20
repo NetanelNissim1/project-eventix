@@ -17,5 +17,11 @@ public record CreateOrderRequest(
 
     @NotEmpty(message = "Order must contain at least one item")
     @Valid
-    List<OrderItemDto> items
-) {}
+    List<OrderItemDto> items,
+
+    String couponCode
+) {
+    public CreateOrderRequest(String customerId, String customerEmail, List<OrderItemDto> items) {
+        this(customerId, customerEmail, items, null);
+    }
+}

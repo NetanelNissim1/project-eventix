@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCartStore } from '../store/useCartStore';
 import { useAuthStore } from '../store/useAuthStore';
-import { ShieldCheck, CreditCard, Lock, ArrowRight, Truck, AlertCircle } from 'lucide-react';
+import { ShieldCheck, CreditCard, Lock, ArrowRight, Truck, AlertCircle, Tag, CheckCircle2, X } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { ShippingAddress } from '../types';
 
@@ -11,10 +11,66 @@ export const CheckoutPage: React.FC = () => {
   const { items, subtotal, clearCart } = useCartStore();
   const user = useAuthStore((state) => state.user);
 
+  // Coupon State
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountPercent: number; description?: string } | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponMsg, setCouponMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   const sub = subtotal();
-  const tax = sub * 0.08;
-  const shipping = sub > 150 ? 0 : 15.0;
-  const grandTotal = sub + tax + shipping;
+  const discountAmount = appliedCoupon ? (sub * appliedCoupon.discountPercent) / 100 : 0;
+  const discountedSub = Math.max(0, sub - discountAmount);
+  const tax = discountedSub * 0.08;
+  const shipping = (discountedSub > 150 || appliedCoupon?.code === 'FREESHIP') ? 0 : 15.0;
+  const grandTotal = discountedSub + tax + shipping;
+
+  const handleApplyCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = couponInput.trim().toUpperCase();
+    if (!code) return;
+
+    setCouponLoading(true);
+    setCouponMsg(null);
+
+    try {
+      const res = await apiClient.get(`/api/v1/orders/coupons/validate?code=${encodeURIComponent(code)}`);
+      if (res.data && res.data.active) {
+        setAppliedCoupon({
+          code: res.data.code,
+          discountPercent: Number(res.data.discountPercent),
+          description: res.data.description,
+        });
+        setCouponMsg({ type: 'success', text: `Coupon "${res.data.code}" applied! (${res.data.discountPercent}% OFF)` });
+        setCouponInput('');
+      } else {
+        setCouponMsg({ type: 'error', text: 'Coupon is inactive or invalid.' });
+      }
+    } catch {
+      // Fallback for default codes
+      if (code === 'WELCOME10') {
+        setAppliedCoupon({ code: 'WELCOME10', discountPercent: 10, description: '10% Welcome Discount' });
+        setCouponMsg({ type: 'success', text: 'Coupon "WELCOME10" applied! (10% OFF)' });
+        setCouponInput('');
+      } else if (code === 'EVENTIX20') {
+        setAppliedCoupon({ code: 'EVENTIX20', discountPercent: 20, description: '20% Event Discount' });
+        setCouponMsg({ type: 'success', text: 'Coupon "EVENTIX20" applied! (20% OFF)' });
+        setCouponInput('');
+      } else if (code === 'FREESHIP') {
+        setAppliedCoupon({ code: 'FREESHIP', discountPercent: 0, description: 'Free Shipping Discount' });
+        setCouponMsg({ type: 'success', text: 'Coupon "FREESHIP" applied! (Free Shipping)' });
+        setCouponInput('');
+      } else {
+        setCouponMsg({ type: 'error', text: `Invalid or expired coupon "${code}". Try "WELCOME10"` });
+      }
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponMsg(null);
+  };
 
   const [address, setAddress] = useState<ShippingAddress>({
     fullName: user?.name || 'John Doe',
@@ -63,6 +119,7 @@ export const CheckoutPage: React.FC = () => {
       customerEmail: user?.email || 'customer1@eventix.com',
       shippingAddress: address,
       idempotencyKey,
+      couponCode: appliedCoupon ? appliedCoupon.code : undefined,
       items: items.map((i) => ({
         productId: i.product.id,
         productName: i.product.name,
@@ -256,18 +313,74 @@ export const CheckoutPage: React.FC = () => {
             ))}
           </div>
 
+          {/* Promo Code Input & Feedback */}
+          <div className="pt-3 border-t border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-400 font-semibold flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-sky-400" /> Promo Code
+              </span>
+              {appliedCoupon && (
+                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-mono font-bold">
+                  <CheckCircle2 className="w-3 h-3" /> {appliedCoupon.code} (-{appliedCoupon.discountPercent}%)
+                  <button
+                    type="button"
+                    onClick={handleRemoveCoupon}
+                    className="hover:text-rose-400 ml-1"
+                    title="Remove coupon"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+            </div>
+
+            {!appliedCoupon && (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={couponInput}
+                  onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                  placeholder="e.g. WELCOME10"
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white font-mono uppercase focus:outline-none focus:border-sky-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyCoupon}
+                  disabled={couponLoading || !couponInput.trim()}
+                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs transition-colors"
+                >
+                  {couponLoading ? '...' : 'Apply'}
+                </button>
+              </div>
+            )}
+
+            {couponMsg && (
+              <p className={`text-[11px] font-medium ${couponMsg.type === 'success' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {couponMsg.text}
+              </p>
+            )}
+          </div>
+
           <div className="pt-3 border-t border-slate-800 space-y-2 text-xs">
             <div className="flex justify-between text-slate-400">
               <span>Subtotal</span>
               <span className="text-white font-mono">${sub.toFixed(2)}</span>
             </div>
+            {appliedCoupon && (
+              <div className="flex justify-between text-emerald-400 font-semibold">
+                <span>Promo Discount ({appliedCoupon.code})</span>
+                <span className="font-mono">-${discountAmount.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-slate-400">
               <span>Tax (8%)</span>
               <span className="text-white font-mono">${tax.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-slate-400">
               <span>Shipping</span>
-              <span className="text-white font-mono">{shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}</span>
+              <span className="text-white font-mono">
+                {shipping === 0 ? <span className="text-emerald-400 font-bold">FREE</span> : `$${shipping.toFixed(2)}`}
+              </span>
             </div>
             <div className="pt-2 border-t border-slate-800 flex justify-between text-sm">
               <span className="font-bold text-white">Total Amount</span>

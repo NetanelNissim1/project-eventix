@@ -1,5 +1,7 @@
 package com.eventix.order.controller;
 
+import com.eventix.order.dto.CouponResponse;
+import com.eventix.order.dto.CreateCouponRequest;
 import com.eventix.order.dto.CreateOrderRequest;
 import com.eventix.order.dto.OrderResponse;
 import com.eventix.order.service.OrderService;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -54,5 +57,29 @@ public class OrderController {
     @GetMapping
     public ResponseEntity<List<OrderResponse>> getAllOrders() {
         return ResponseEntity.ok(orderService.getAllOrders());
+    }
+
+    @GetMapping("/coupons/validate")
+    public ResponseEntity<CouponResponse> validateCoupon(@RequestParam String code) {
+        return orderService.validateCoupon(code)
+            .map(ResponseEntity::ok)
+            .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/coupons")
+    public ResponseEntity<List<CouponResponse>> getAllCoupons() {
+        return ResponseEntity.ok(orderService.getAllCoupons());
+    }
+
+    @PostMapping("/coupons")
+    public ResponseEntity<CouponResponse> createCoupon(@Valid @RequestBody CreateCouponRequest request) {
+        return ResponseEntity.ok(orderService.createCoupon(request));
+    }
+
+    @PostMapping("/coupons/{code}/toggle")
+    public ResponseEntity<CouponResponse> toggleCoupon(@PathVariable String code) {
+        return orderService.toggleCoupon(code)
+            .map(ResponseEntity::ok)
+            .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

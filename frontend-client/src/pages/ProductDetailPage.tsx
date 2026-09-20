@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Product } from '../types';
 import { MOCK_PRODUCTS } from '../data/mockProducts';
 import { useCartStore } from '../store/useCartStore';
-import { ShoppingBag, ArrowLeft, Star, Lock, CheckCircle2, ChevronRight, Zap, Heart } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, Star, Lock, CheckCircle2, ChevronRight, Zap, Heart, AlertTriangle } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { useWishlistStore } from '../store/useWishlistStore';
 
@@ -16,11 +16,11 @@ export const ProductDetailPage: React.FC = () => {
   const [product, setProduct] = useState<Product | null>(() => {
     return MOCK_PRODUCTS.find((p) => p.id === id) || null;
   });
+  const [availableStock, setAvailableStock] = useState<number | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
   const [addedAlert, setAddedAlert] = useState<boolean>(false);
 
   useEffect(() => {
-    // Attempt fetching live product if online
     if (id) {
       apiClient.get(`/api/v1/products/${id}`)
         .then((res) => {
@@ -28,12 +28,20 @@ export const ProductDetailPage: React.FC = () => {
             setProduct((prev) => ({
               ...(prev || {}),
               ...res.data,
-              stockQuantity: res.data.stockQuantity || prev?.stockQuantity || 15,
             }));
           }
         })
+        .catch(() => {});
+
+      apiClient.get(`/api/v1/inventory/${id}`)
+        .then((res) => {
+          if (res.data && typeof res.data.availableQuantity === 'number') {
+            setAvailableStock(res.data.availableQuantity);
+          }
+        })
         .catch(() => {
-          // fallback to mock
+          // Mock fallback: prod-102 has low stock (3 units) to demonstrate scarcity
+          setAvailableStock(id === 'prod-102' ? 3 : 25);
         });
     }
   }, [id]);
@@ -54,15 +62,19 @@ export const ProductDetailPage: React.FC = () => {
     );
   }
 
-  const maxStock = product.stockQuantity || 20;
+  const maxStock = availableStock !== null ? availableStock : (product.stockQuantity || 20);
+  const isOutOfStock = maxStock === 0;
+  const isLowStock = maxStock > 0 && maxStock <= 5;
 
   const handleAddToCart = () => {
+    if (isOutOfStock) return;
     addItem(product, quantity);
     setAddedAlert(true);
     setTimeout(() => setAddedAlert(false), 3000);
   };
 
   const handleBuyNow = () => {
+    if (isOutOfStock) return;
     addItem(product, quantity);
     navigate('/checkout');
   };
@@ -70,33 +82,25 @@ export const ProductDetailPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-16 max-w-6xl mx-auto">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
-        <Link to="/" className="hover:text-white transition-colors">Home</Link>
+      <div className="flex items-center gap-2 text-xs text-slate-500">
+        <Link to="/" className="hover:text-slate-300">Home</Link>
         <ChevronRight className="w-3.5 h-3.5" />
-        <Link to="/products" className="hover:text-white transition-colors">Catalog</Link>
-        {product.category && (
-          <>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <Link to={`/products?category=${product.category.id}`} className="hover:text-white transition-colors">
-              {product.category.name}
-            </Link>
-          </>
-        )}
+        <Link to="/products" className="hover:text-slate-300">Catalog</Link>
         <ChevronRight className="w-3.5 h-3.5" />
-        <span className="text-slate-200 font-bold truncate max-w-xs">{product.name}</span>
+        <span className="text-slate-300 truncate max-w-xs">{product.name}</span>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-10 shadow-xl">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-start">
         {/* Left: Product Image */}
-        <div className="space-y-4">
-          <div className="rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 h-96 sm:h-[460px] relative group">
-            <img
-              src={product.imageUrl}
-              alt={product.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            />
-            <span className="absolute top-4 left-4 bg-slate-900/85 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-sky-400 border border-sky-500/20">
-              {product.category?.name || 'Hardware'}
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 flex items-center justify-center relative group overflow-hidden shadow-2xl">
+          <img
+            src={product.imageUrl}
+            alt={product.name}
+            className="w-full h-80 sm:h-96 object-contain rounded-2xl group-hover:scale-105 transition-transform duration-500"
+          />
+          <div className="absolute top-4 left-4">
+            <span className="px-3 py-1 bg-slate-950/80 backdrop-blur border border-slate-800 rounded-xl text-xs font-semibold text-slate-300">
+              {product.category?.name || 'Electronics'}
             </span>
           </div>
         </div>
@@ -125,12 +129,34 @@ export const ProductDetailPage: React.FC = () => {
               {product.description}
             </p>
 
-            {/* Stock Availability indicator */}
-            <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-2xl flex items-center justify-between text-xs">
+            {/* Dynamic Stock Scarcity & Availability Banner */}
+            <div
+              className={`p-3.5 rounded-2xl flex items-center justify-between text-xs border transition-all ${
+                isOutOfStock
+                  ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                  : isLowStock
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-300 shadow-lg shadow-amber-500/10'
+                  : 'bg-slate-950/70 border-slate-800 text-emerald-400'
+              }`}
+            >
               <span className="text-slate-400">Inventory Status:</span>
-              <span className="font-bold flex items-center gap-1.5 text-emerald-400">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>{maxStock} Units In Stock</span>
+              <span className="font-bold flex items-center gap-1.5">
+                {isOutOfStock ? (
+                  <>
+                    <AlertTriangle className="w-4 h-4 text-rose-400" />
+                    <span>Out of Stock (Unavailable)</span>
+                  </>
+                ) : isLowStock ? (
+                  <>
+                    <AlertTriangle className="w-4 h-4 text-amber-400 animate-bounce" />
+                    <span>🔥 Hurry! Only {maxStock} left in stock</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>{maxStock} Units In Stock</span>
+                  </>
+                )}
               </span>
             </div>
 
@@ -139,17 +165,21 @@ export const ProductDetailPage: React.FC = () => {
               <span className="text-xs font-bold text-slate-400 uppercase">Quantity:</span>
               <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl overflow-hidden">
                 <button
+                  type="button"
+                  disabled={isOutOfStock}
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="px-3.5 py-1.5 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors text-sm font-bold"
+                  className="px-3.5 py-1.5 text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm font-bold"
                 >
                   -
                 </button>
                 <span className="px-4 py-1.5 text-xs font-mono font-bold text-white min-w-[3rem] text-center">
-                  {quantity}
+                  {isOutOfStock ? 0 : quantity}
                 </span>
                 <button
+                  type="button"
+                  disabled={isOutOfStock || quantity >= maxStock}
                   onClick={() => setQuantity((q) => Math.min(maxStock, q + 1))}
-                  className="px-3.5 py-1.5 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors text-sm font-bold"
+                  className="px-3.5 py-1.5 text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm font-bold"
                 >
                   +
                 </button>
@@ -169,18 +199,20 @@ export const ProductDetailPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 onClick={handleAddToCart}
-                className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-slate-800 hover:bg-slate-700/90 border border-slate-700 text-white font-bold text-xs transition-all active:scale-95 shadow-md"
+                disabled={isOutOfStock}
+                className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-slate-800 hover:bg-slate-700/90 border border-slate-700 text-white font-bold text-xs transition-all active:scale-95 shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <ShoppingBag className="w-4 h-4" />
-                <span>Add to Cart</span>
+                <span>{isOutOfStock ? 'Sold Out' : 'Add to Cart'}</span>
               </button>
 
               <button
                 onClick={handleBuyNow}
-                className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs transition-all active:scale-95 shadow-lg shadow-sky-500/25"
+                disabled={isOutOfStock}
+                className="flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs transition-all active:scale-95 shadow-lg shadow-sky-500/25 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Zap className="w-4 h-4" />
-                <span>Buy Now (Instant Checkout)</span>
+                <span>{isOutOfStock ? 'Currently Unavailable' : 'Buy Now (Instant Checkout)'}</span>
               </button>
             </div>
 

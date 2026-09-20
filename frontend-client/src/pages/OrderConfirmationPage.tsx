@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
-import { CheckCircle2, Printer, ArrowRight, ShieldCheck, Activity } from 'lucide-react';
+import { CheckCircle2, Printer, ArrowRight, ShieldCheck, Activity, Mail } from 'lucide-react';
 
 export const OrderConfirmationPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -40,6 +40,24 @@ export const OrderConfirmationPage: React.FC = () => {
         >
           <Printer className="w-3.5 h-3.5" /> Print / Save PDF
         </button>
+      </div>
+
+      {/* Automated Email Confirmation Banner */}
+      <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+            <Mail className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="font-bold text-emerald-300">Order Confirmed & Receipt Dispatched</p>
+            <p className="text-[11px] text-slate-300">
+              An official PDF tax receipt has been dispatched to <span className="font-mono text-white font-semibold">{state?.customerEmail || 'customer@eventix.io'}</span>.
+            </p>
+          </div>
+        </div>
+        <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/60 px-2.5 py-1 rounded-full border border-emerald-500/30">
+          <CheckCircle2 className="w-3 h-3" /> Sent via Mailpit
+        </span>
       </div>
 
       {/* Official Receipt Card */}
