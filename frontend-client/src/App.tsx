@@ -108,14 +108,7 @@ export const App: React.FC = () => {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/digest"
-              element={
-                <ProtectedRoute requiredRole="ROLE_ADMIN">
-                  <DigestPage />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/digest" element={<DigestPage />} />
 
             {/* 404 Fallback */}
             <Route path="*" element={<NotFoundPage />} />

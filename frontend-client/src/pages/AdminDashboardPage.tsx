@@ -27,6 +27,7 @@ import {
 import { apiClient } from '../api/client';
 import { Product, OrderResponse } from '../types';
 import { MOCK_PRODUCTS } from '../data/mockProducts';
+import { DigestView } from '../components/DigestView';
 
 interface CouponItem {
   code: string;
@@ -38,7 +39,7 @@ interface CouponItem {
 
 export const AdminDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'inventory' | 'orders' | 'coupons'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'inventory' | 'orders' | 'coupons' | 'digest'>('overview');
 
   // Coupons State
   const [coupons, setCoupons] = useState<CouponItem[]>([]);
@@ -423,6 +424,17 @@ export const AdminDashboardPage: React.FC = () => {
         >
           <Tag className="w-4 h-4" /> Promotions & Coupons ({coupons.length})
         </button>
+
+        <button
+          onClick={() => setActiveTab('digest')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
+            activeTab === 'digest'
+              ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20'
+              : 'text-slate-400 hover:text-white hover:bg-slate-900'
+          }`}
+        >
+          <Mail className="w-4 h-4" /> Daily Digest & Email
+        </button>
       </div>
 
       {/* TAB 1: OVERVIEW */}
@@ -531,12 +543,13 @@ export const AdminDashboardPage: React.FC = () => {
                 )}
               </button>
 
-              <Link
-                to="/digest"
+              <button
+                type="button"
+                onClick={() => setActiveTab('digest')}
                 className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-semibold transition-colors"
               >
                 Scheduler & Settings
-              </Link>
+              </button>
             </div>
           </div>
 
@@ -1269,6 +1282,13 @@ export const AdminDashboardPage: React.FC = () => {
               </table>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* TAB 6: DAILY DIGEST & EMAIL SURVEILLANCE */}
+      {activeTab === 'digest' && (
+        <div className="pt-2 animate-fade-in">
+          <DigestView />
         </div>
       )}
     </div>
