@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { Product, OrderResponse } from '../types';
+import { MOCK_PRODUCTS } from '../data/mockProducts';
 
 interface CouponItem {
   code: string;
@@ -90,12 +91,7 @@ export const AdminDashboardPage: React.FC = () => {
       }
     } catch {
       // Fallback defaults
-      setProducts([
-        { id: 'prod-101', name: 'Sony WH-1000XM5 Wireless Headphones', price: 349.99, description: 'Noise canceling headphones', imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&q=80' },
-        { id: 'prod-102', name: 'Apple MacBook Pro 16" M3 Max', price: 2999.00, description: '36GB Unified Memory, M3 Max', imageUrl: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=500&q=80' },
-        { id: 'prod-103', name: 'Keychron Q1 Pro Mechanical Keyboard', price: 199.00, description: 'Wireless custom mechanical keyboard', imageUrl: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=500&q=80' },
-        { id: 'prod-104', name: 'Logitech MX Master 3S Wireless Mouse', price: 99.99, description: 'Quiet clicks, 8K DPI sensor', imageUrl: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=500&q=80' },
-      ]);
+      setProducts(MOCK_PRODUCTS);
     } finally {
       setLoadingProducts(false);
     }
@@ -110,12 +106,15 @@ export const AdminDashboardPage: React.FC = () => {
         setInventory(res.data);
       }
     } catch {
-      setInventory([
-        { productId: 'prod-101', productName: 'Sony WH-1000XM5 Wireless Headphones', availableQuantity: 45, reservedQuantity: 5, version: 4 },
-        { productId: 'prod-102', productName: 'Apple MacBook Pro 16" M3 Max', availableQuantity: 25, reservedQuantity: 0, version: 0 },
-        { productId: 'prod-103', productName: 'Keychron Q1 Pro Mechanical Keyboard', availableQuantity: 60, reservedQuantity: 0, version: 0 },
-        { productId: 'prod-104', productName: 'Logitech MX Master 3S Wireless Mouse', availableQuantity: 80, reservedQuantity: 0, version: 0 },
-      ]);
+      setInventory(
+        MOCK_PRODUCTS.map((p, idx) => ({
+          productId: p.id,
+          productName: p.name,
+          availableQuantity: p.stockQuantity || 15,
+          reservedQuantity: idx === 0 ? 5 : 0,
+          version: 1,
+        }))
+      );
     } finally {
       setLoadingInventory(false);
     }
