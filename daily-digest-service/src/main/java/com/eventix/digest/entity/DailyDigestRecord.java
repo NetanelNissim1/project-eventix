@@ -40,7 +40,7 @@ public class DailyDigestRecord {
     @Column(name = "email_recipient", nullable = false)
     private String emailRecipient;
 
-    @Column(name = "status", nullable = false, length = 20)
+    @Column(name = "status", nullable = false, length = 255)
     private String status;
 
     @Column(name = "generated_at", nullable = false)

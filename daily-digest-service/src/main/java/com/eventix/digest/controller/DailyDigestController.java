@@ -4,6 +4,7 @@ import com.eventix.digest.dto.CustomerActivitySummary;
 import com.eventix.digest.dto.CustomerPurchaseSummary;
 import com.eventix.digest.dto.DigestScheduleConfig;
 import com.eventix.digest.dto.RecordActivityRequest;
+import com.eventix.digest.dto.SmtpConfigDto;
 import com.eventix.digest.entity.DailyDigestRecord;
 import com.eventix.digest.service.DailyDigestService;
 import java.util.List;
@@ -31,6 +32,25 @@ public class DailyDigestController {
         @RequestParam(required = false, defaultValue = "bill.nissim@gmail.com") String recipient
     ) {
         return ResponseEntity.ok(digestService.generateAndSendDigest(recipient));
+    }
+
+    @GetMapping("/smtp")
+    public ResponseEntity<SmtpConfigDto> getSmtpConfig() {
+        return ResponseEntity.ok(digestService.getSmtpConfig());
+    }
+
+    @PostMapping("/smtp")
+    public ResponseEntity<SmtpConfigDto> updateSmtpConfig(
+        @RequestBody SmtpConfigDto dto
+    ) {
+        return ResponseEntity.ok(digestService.updateSmtpConfig(dto));
+    }
+
+    @PostMapping("/smtp/test")
+    public ResponseEntity<Map<String, Object>> testSmtp(
+        @RequestParam(required = false, defaultValue = "bill.nissim@gmail.com") String recipient
+    ) {
+        return ResponseEntity.ok(digestService.testSmtpConnection(recipient));
     }
 
     @GetMapping("/schedule")

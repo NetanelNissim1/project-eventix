@@ -298,7 +298,11 @@ export const AdminDashboardPage: React.FC = () => {
     try {
       const res = await apiClient.post('/api/v1/digest/trigger-now?recipient=bill.nissim@gmail.com');
       if (res.status === 200) {
-        setQuickDigestMsg('Digest report dispatched to bill.nissim@gmail.com! Preview at Mailpit: http://localhost:8025');
+        if (res.data?.status === 'SENT') {
+          setQuickDigestMsg('✅ Report delivered directly to bill.nissim@gmail.com!');
+        } else {
+          setQuickDigestMsg(`⚠️ Report compiled, SMTP dispatch: ${res.data?.status || 'Failed'}. Configure SMTP settings below.`);
+        }
       } else {
         setQuickDigestMsg('Failed to dispatch digest report');
       }

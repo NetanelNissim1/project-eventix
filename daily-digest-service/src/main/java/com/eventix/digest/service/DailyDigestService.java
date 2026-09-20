@@ -3,6 +3,7 @@ package com.eventix.digest.service;
 import com.eventix.digest.dto.CustomerActivitySummary;
 import com.eventix.digest.dto.CustomerPurchaseSummary;
 import com.eventix.digest.dto.DigestScheduleConfig;
+import com.eventix.digest.dto.SmtpConfigDto;
 import com.eventix.digest.entity.DailyDigestRecord;
 import com.eventix.digest.repository.DailyDigestRepository;
 import jakarta.mail.internet.MimeMessage;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -26,6 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -264,8 +267,9 @@ public class DailyDigestService {
             mailSender.send(message);
             log.info("Successfully sent Daily Digest email to {}", effectiveRecipient);
         } catch (Exception e) {
-            log.error("Failed to send Daily Digest email: {}", e.getMessage(), e);
-            status = "FAILED";
+            String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            log.error("Failed to send Daily Digest email to {}: {}", effectiveRecipient, errorMsg, e);
+            status = "FAILED: " + (errorMsg.length() > 200 ? errorMsg.substring(0, 200) : errorMsg);
         }
 
         DailyDigestRecord record = new DailyDigestRecord(
@@ -283,6 +287,71 @@ public class DailyDigestService {
         );
 
         return digestRepository.save(record);
+    }
+
+    public SmtpConfigDto getSmtpConfig() {
+        if (mailSender instanceof JavaMailSenderImpl impl) {
+            boolean hasUser = impl.getUsername() != null && !impl.getUsername().isBlank();
+            boolean hasPass = impl.getPassword() != null && !impl.getPassword().isBlank();
+            return new SmtpConfigDto(
+                impl.getHost() != null ? impl.getHost() : "smtp.gmail.com",
+                impl.getPort() > 0 ? impl.getPort() : 587,
+                impl.getUsername() != null ? impl.getUsername() : "",
+                hasPass ? "••••••••••••••••" : "",
+                true,
+                true,
+                hasUser && hasPass
+            );
+        }
+        return new SmtpConfigDto("smtp.gmail.com", 587, "", "", true, true, false);
+    }
+
+    public SmtpConfigDto updateSmtpConfig(SmtpConfigDto dto) {
+        if (mailSender instanceof JavaMailSenderImpl impl) {
+            if (dto.getHost() != null && !dto.getHost().isBlank()) {
+                impl.setHost(dto.getHost().trim());
+            }
+            if (dto.getPort() > 0) {
+                impl.setPort(dto.getPort());
+            }
+            if (dto.getUsername() != null) {
+                impl.setUsername(dto.getUsername().trim());
+                if (dto.getUsername().contains("@")) {
+                    this.defaultSender = dto.getUsername().trim();
+                }
+            }
+            if (dto.getPassword() != null && !dto.getPassword().isBlank() && !dto.getPassword().contains("••••")) {
+                impl.setPassword(dto.getPassword().trim());
+            }
+            Properties props = impl.getJavaMailProperties();
+            props.put("mail.smtp.auth", "true");
+            props.put("mail.smtp.starttls.enable", "true");
+            props.put("mail.smtp.connectiontimeout", "7000");
+            props.put("mail.smtp.timeout", "7000");
+            props.put("mail.smtp.writetimeout", "7000");
+            impl.setJavaMailProperties(props);
+            log.info("Updated dynamic SMTP configuration: host={}, port={}, user={}", impl.getHost(), impl.getPort(), impl.getUsername());
+        }
+        return getSmtpConfig();
+    }
+
+    public Map<String, Object> testSmtpConnection(String recipient) {
+        String testTarget = (recipient != null && !recipient.isBlank()) ? recipient : defaultRecipient;
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            helper.setFrom(defaultSender);
+            helper.setTo(testTarget);
+            helper.setSubject("✅ Eventix SMTP Connection Verified");
+            helper.setText("Congratulations! This automated test confirms that Project Eventix is successfully connected to your SMTP mail server and can deliver real emails directly to " + testTarget + ".");
+            mailSender.send(message);
+            log.info("Successfully sent SMTP test email to {}", testTarget);
+            return Map.of("success", true, "message", "SMTP connection test succeeded! Email delivered to " + testTarget);
+        } catch (Exception e) {
+            String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            log.error("SMTP connection test failed to {}: {}", testTarget, errorMsg, e);
+            return Map.of("success", false, "message", "SMTP test failed: " + errorMsg);
+        }
     }
 
     @Transactional(readOnly = true)
