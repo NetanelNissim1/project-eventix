@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Zap, Server, Activity } from 'lucide-react';
+import { ShieldCheck, Zap } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   return (
@@ -40,11 +40,12 @@ export const Footer: React.FC = () => {
           </div>
 
           <div>
-            <h4 className="text-white font-bold text-xs uppercase mb-3 tracking-wider">System & Architecture</h4>
+            <h4 className="text-white font-bold text-xs uppercase mb-3 tracking-wider">Trust & Security</h4>
             <ul className="space-y-2">
-              <li><Link to="/system-health" className="text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1.5"><Activity className="w-3 h-3" /> System Health</Link></li>
-              <li><Link to="/audit" className="hover:text-white transition-colors flex items-center gap-1.5"><ShieldCheck className="w-3 h-3 text-emerald-400" /> Audit Log Console</Link></li>
-              <li><Link to="/digest" className="hover:text-white transition-colors flex items-center gap-1.5"><Server className="w-3 h-3 text-indigo-400" /> Daily Digest Report</Link></li>
+              <li className="text-slate-400 flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> 256-Bit SSL Encrypted</li>
+              <li className="text-slate-400 flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-sky-400" /> Real-Time Event Tracking</li>
+              <li><Link to="/support" className="hover:text-white transition-colors">Buyer Protection</Link></li>
+              <li><Link to="/support" className="hover:text-white transition-colors">Shipping & Returns</Link></li>
             </ul>
           </div>
         </div>

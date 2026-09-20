@@ -22,6 +22,7 @@ import { WishlistPage } from './pages/WishlistPage';
 import { SystemHealthPage } from './pages/SystemHealthPage';
 import { SupportFaqPage } from './pages/SupportFaqPage';
 import { OrderConfirmationPage } from './pages/OrderConfirmationPage';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 export const App: React.FC = () => {
@@ -75,12 +76,43 @@ export const App: React.FC = () => {
               }
             />
 
-            {/* System Observability & Reporting */}
-            <Route path="/system-health" element={<SystemHealthPage />} />
+            {/* Public Support & FAQs */}
             <Route path="/support" element={<SupportFaqPage />} />
             <Route path="/faq" element={<SupportFaqPage />} />
-            <Route path="/audit" element={<AuditPage />} />
-            <Route path="/digest" element={<DigestPage />} />
+
+            {/* Administrator Only Area */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute requiredRole="ROLE_ADMIN">
+                  <AdminDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/system-health"
+              element={
+                <ProtectedRoute requiredRole="ROLE_ADMIN">
+                  <SystemHealthPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/audit"
+              element={
+                <ProtectedRoute requiredRole="ROLE_ADMIN">
+                  <AuditPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/digest"
+              element={
+                <ProtectedRoute requiredRole="ROLE_ADMIN">
+                  <DigestPage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* 404 Fallback */}
             <Route path="*" element={<NotFoundPage />} />

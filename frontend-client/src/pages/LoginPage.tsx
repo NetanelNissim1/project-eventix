@@ -67,7 +67,10 @@ export const LoginPage: React.FC = () => {
 
       login(user);
       setLoading(false);
-      navigate(redirect, { replace: true });
+      const targetDestination = roles.includes('ROLE_ADMIN') && (!searchParams.get('redirect')) 
+        ? '/admin' 
+        : redirect;
+      navigate(targetDestination, { replace: true });
     }, 400);
   };
 
