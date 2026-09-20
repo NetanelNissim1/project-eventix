@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { 
   ShieldCheck, 
@@ -37,9 +37,28 @@ interface CouponItem {
   usageCount: number;
 }
 
+const VALID_TABS = ['overview', 'products', 'inventory', 'orders', 'coupons', 'digest'] as const;
+type AdminTab = typeof VALID_TABS[number];
+
 export const AdminDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'inventory' | 'orders' | 'coupons' | 'digest'>('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab') as AdminTab;
+  const [activeTab, setActiveTab] = useState<AdminTab>(
+    VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'overview'
+  );
+
+  const switchTab = (tab: AdminTab) => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
+
+  useEffect(() => {
+    const currentTabParam = searchParams.get('tab') as AdminTab;
+    if (currentTabParam && VALID_TABS.includes(currentTabParam) && currentTabParam !== activeTab) {
+      setActiveTab(currentTabParam);
+    }
+  }, [searchParams]);
 
   // Coupons State
   const [coupons, setCoupons] = useState<CouponItem[]>([]);
@@ -371,7 +390,7 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto">
         <button
-          onClick={() => setActiveTab('overview')}
+          onClick={() => switchTab('overview')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'overview'
               ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20'
@@ -382,7 +401,7 @@ export const AdminDashboardPage: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('products')}
+          onClick={() => switchTab('products')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'products'
               ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20'
@@ -393,7 +412,7 @@ export const AdminDashboardPage: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('inventory')}
+          onClick={() => switchTab('inventory')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'inventory'
               ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20'
@@ -404,7 +423,7 @@ export const AdminDashboardPage: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('orders')}
+          onClick={() => switchTab('orders')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'orders'
               ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20'
@@ -415,7 +434,7 @@ export const AdminDashboardPage: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('coupons')}
+          onClick={() => switchTab('coupons')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'coupons'
               ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20'
@@ -425,16 +444,25 @@ export const AdminDashboardPage: React.FC = () => {
           <Tag className="w-4 h-4" /> Promotions & Coupons ({coupons.length})
         </button>
 
-        <button
-          onClick={() => setActiveTab('digest')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'digest'
-              ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20'
-              : 'text-slate-400 hover:text-white hover:bg-slate-900'
-          }`}
-        >
-          <Mail className="w-4 h-4" /> Daily Digest & Email
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => switchTab('digest')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'digest'
+                ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <Mail className="w-4 h-4" /> Daily Digest & Email
+          </button>
+          <Link
+            to="/digest"
+            title="Open Digest in Dedicated Full Page"
+            className="p-2 rounded-xl text-slate-400 hover:text-sky-400 hover:bg-slate-900 transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </Link>
+        </div>
       </div>
 
       {/* TAB 1: OVERVIEW */}
@@ -506,10 +534,13 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
               <div>
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-white mb-1 flex items-center gap-2">
-                    Daily Operations & Purchases Digest
+                  <Link
+                    to="/digest"
+                    className="text-base font-bold text-white mb-1 flex items-center gap-2 hover:text-sky-400 transition-colors"
+                  >
+                    <span>Daily Operations & Purchases Digest</span>
                     <ArrowUpRight className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-colors" />
-                  </h3>
+                  </Link>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed">
                   Automated end-of-day summary delivering customer purchases, catalog search logs, and activity streams directly to <span className="text-sky-300 font-mono font-semibold">bill.nissim@gmail.com</span>.
@@ -543,13 +574,22 @@ export const AdminDashboardPage: React.FC = () => {
                 )}
               </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveTab('digest')}
-                className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-semibold transition-colors"
-              >
-                Scheduler & Settings
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => switchTab('digest')}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-semibold transition-colors"
+                >
+                  Tab View
+                </button>
+                <Link
+                  to="/digest"
+                  className="px-3 py-1.5 bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/30 text-sky-300 hover:text-white rounded-xl text-xs font-semibold transition-colors inline-flex items-center gap-1"
+                >
+                  <span>Dedicated Page</span>
+                  <ArrowUpRight className="w-3 h-3" />
+                </Link>
+              </div>
             </div>
           </div>
 

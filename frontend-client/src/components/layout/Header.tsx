@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingBag, Search, Zap, User, LogOut, ChevronDown, Package, ShieldCheck, Heart } from 'lucide-react';
+import { ShoppingBag, Search, Zap, User, LogOut, ChevronDown, Package, ShieldCheck, Heart, Mail } from 'lucide-react';
 import { useCartStore } from '../../store/useCartStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useWishlistStore } from '../../store/useWishlistStore';
@@ -66,13 +66,23 @@ export const Header: React.FC = () => {
 
           {/* Admin Exclusive Access */}
           {user?.roles?.includes('ROLE_ADMIN') && (
-            <Link
-              to="/admin"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 hover:text-indigo-200 rounded-lg transition-all"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Admin Console</span>
-            </Link>
+            <div className="flex items-center gap-1.5">
+              <Link
+                to="/admin"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 hover:text-indigo-200 rounded-lg transition-all"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Admin</span>
+              </Link>
+              <Link
+                to="/digest"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-300 hover:text-sky-200 rounded-lg transition-all"
+                title="Daily Digest & Email Dispatch"
+              >
+                <Mail className="w-3.5 h-3.5 text-sky-400" />
+                <span>Digest</span>
+              </Link>
+            </div>
           )}
         </nav>
 
@@ -109,14 +119,24 @@ export const Header: React.FC = () => {
                   </div>
 
                   {user.roles?.includes('ROLE_ADMIN') && (
-                    <Link
-                      to="/admin"
-                      onClick={() => setUserDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-300 hover:bg-slate-800 hover:text-white transition-colors border-b border-slate-800/60 font-semibold"
-                    >
-                      <ShieldCheck className="w-4 h-4 text-indigo-400" />
-                      Admin Console
-                    </Link>
+                    <>
+                      <Link
+                        to="/admin"
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-xs text-indigo-300 hover:bg-slate-800 hover:text-white transition-colors border-b border-slate-800/60 font-semibold"
+                      >
+                        <ShieldCheck className="w-4 h-4 text-indigo-400" />
+                        Admin Console
+                      </Link>
+                      <Link
+                        to="/digest"
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-xs text-sky-300 hover:bg-slate-800 hover:text-white transition-colors border-b border-slate-800/60 font-semibold"
+                      >
+                        <Mail className="w-4 h-4 text-sky-400" />
+                        Daily Digest & Email
+                      </Link>
+                    </>
                   )}
 
                   <Link

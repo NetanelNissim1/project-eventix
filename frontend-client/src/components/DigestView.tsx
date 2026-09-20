@@ -61,11 +61,14 @@ export const DigestView: React.FC = () => {
     setLoading(true);
     try {
       const res = await apiClient.get('/api/v1/digest/history');
-      if (res.data) {
+      if (Array.isArray(res.data)) {
         setHistory(res.data);
+      } else {
+        setHistory([]);
       }
     } catch (err) {
       console.error('Failed to fetch digest history', err);
+      setHistory([]);
     } finally {
       setLoading(false);
     }
@@ -74,8 +77,8 @@ export const DigestView: React.FC = () => {
   const fetchSchedule = async () => {
     try {
       const res = await apiClient.get('/api/v1/digest/schedule');
-      if (res.data) {
-        setSchedule(res.data);
+      if (res.data && typeof res.data === 'object' && !Array.isArray(res.data)) {
+        setSchedule((prev) => ({ ...prev, ...res.data }));
       }
     } catch (err) {
       console.error('Failed to fetch schedule config', err);
@@ -85,7 +88,7 @@ export const DigestView: React.FC = () => {
   const fetchSmtp = async () => {
     try {
       const res = await apiClient.get('/api/v1/digest/smtp');
-      if (res.data) {
+      if (res.data && typeof res.data === 'object' && !Array.isArray(res.data)) {
         setSmtp((prev) => ({
           ...prev,
           ...res.data,
@@ -99,8 +102,12 @@ export const DigestView: React.FC = () => {
   const fetchTodaySummary = async () => {
     try {
       const res = await apiClient.get('/api/v1/digest/today-summary');
-      if (res.data) {
-        setTodaySummary(res.data);
+      if (res.data && typeof res.data === 'object' && !Array.isArray(res.data)) {
+        setTodaySummary({
+          purchases: Array.isArray(res.data.purchases) ? res.data.purchases : [],
+          searches: res.data.searches && typeof res.data.searches === 'object' ? res.data.searches : {},
+          activities: Array.isArray(res.data.activities) ? res.data.activities : [],
+        });
       }
     } catch (err) {
       console.error('Failed to fetch today summary', err);
@@ -518,7 +525,7 @@ export const DigestView: React.FC = () => {
             <Key className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
             <div className="text-[11px] text-slate-400 leading-relaxed">
               <strong className="text-slate-200">כיצד מייצרים סיסמת אפליקציה לשליחה דרך Gmail:</strong><br />
-              היכנס לחשבון הגוגל שלך $\rightarrow$ לשונית <strong>אבטחה (Security)</strong> $\rightarrow$ ודא שאימות דו-שלבי (2-Step Verification) פעיל $\rightarrow$ חפש <strong>סיסמאות לאפליקציות (App Passwords)</strong> $\rightarrow$ צור סיסמה בשם "Eventix" והדבק כאן את 16 האותיות (או הגדר כמשתנה סביבה <code className="text-sky-300 font-mono">SPRING_MAIL_PASSWORD</code> ב-Railway).
+              היכנס לחשבון הגוגל שלך &rarr; לשונית <strong>אבטחה (Security)</strong> &rarr; ודא שאימות דו-שלבי (2-Step Verification) פעיל &rarr; חפש <strong>סיסמאות לאפליקציות (App Passwords)</strong> &rarr; צור סיסמה בשם "Eventix" והדבק כאן את 16 האותיות (או הגדר כמשתנה סביבה <code className="text-sky-300 font-mono">SPRING_MAIL_PASSWORD</code> ב-Railway).
             </div>
           </div>
 
@@ -557,7 +564,7 @@ export const DigestView: React.FC = () => {
             </p>
           </div>
           <span className="text-[11px] text-slate-500 font-mono">
-            {todaySummary.purchases.length} orders &bull; {Object.keys(todaySummary.searches).length} queries &bull; {todaySummary.activities.length} events
+            {(todaySummary?.purchases || []).length} orders &bull; {Object.keys(todaySummary?.searches || {}).length} queries &bull; {(todaySummary?.activities || []).length} events
           </span>
         </div>
 
@@ -566,23 +573,23 @@ export const DigestView: React.FC = () => {
           <div className="space-y-3">
             <div className="font-bold text-slate-300 flex items-center gap-2 text-xs">
               <ShoppingCart className="w-3.5 h-3.5 text-sky-400" />
-              Customer Purchases ({todaySummary.purchases.length})
+              Customer Purchases ({(todaySummary?.purchases || []).length})
             </div>
             <div className="p-3 bg-slate-950/70 border border-slate-800/80 rounded-2xl max-h-48 overflow-y-auto space-y-2">
-              {todaySummary.purchases.length === 0 ? (
+              {(todaySummary?.purchases || []).length === 0 ? (
                 <div className="text-slate-500 text-center py-4 italic text-[11px]">No purchases recorded yet today.</div>
               ) : (
-                todaySummary.purchases.map((p, idx) => (
+                todaySummary.purchases.map((p: any, idx: number) => (
                   <div key={idx} className="p-2.5 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between">
                     <div>
-                      <div className="font-bold text-white text-[11px]">{p.customerEmail || 'customer@eventix.io'}</div>
+                      <div className="font-bold text-white text-[11px]">{p?.customerEmail || 'customer@eventix.io'}</div>
                       <div className="text-[10px] text-slate-400">
-                        {p.items?.map((it: any) => `${it.productName} (x${it.quantity})`).join(', ') || 'Pending items'}
+                        {p?.items?.map((it: any) => `${it.productName} (x${it.quantity})`).join(', ') || 'Pending items'}
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-mono font-bold text-emerald-400">${Number(p.totalAmount || 0).toFixed(2)}</div>
-                      <div className="text-[9px] font-mono text-sky-400 font-bold">{p.status}</div>
+                      <div className="font-mono font-bold text-emerald-400">${Number(p?.totalAmount || 0).toFixed(2)}</div>
+                      <div className="text-[9px] font-mono text-sky-400 font-bold">{p?.status || 'PENDING'}</div>
                     </div>
                   </div>
                 ))
@@ -594,14 +601,14 @@ export const DigestView: React.FC = () => {
           <div className="space-y-3">
             <div className="font-bold text-slate-300 flex items-center gap-2 text-xs">
               <Search className="w-3.5 h-3.5 text-amber-400" />
-              Catalog Searches ({Object.keys(todaySummary.searches).length} unique keywords)
+              Catalog Searches ({Object.keys(todaySummary?.searches || {}).length} unique keywords)
             </div>
             <div className="p-3 bg-slate-950/70 border border-slate-800/80 rounded-2xl max-h-48 overflow-y-auto">
-              {Object.keys(todaySummary.searches).length === 0 ? (
+              {Object.keys(todaySummary?.searches || {}).length === 0 ? (
                 <div className="text-slate-500 text-center py-4 italic text-[11px]">No store searches recorded yet today.</div>
               ) : (
                 <div className="flex flex-wrap gap-2">
-                  {Object.entries(todaySummary.searches).map(([keyword, count]) => (
+                  {Object.entries(todaySummary?.searches || {}).map(([keyword, count]) => (
                     <span
                       key={keyword}
                       className="px-2.5 py-1 bg-slate-900 border border-slate-700/70 rounded-full text-[11px] text-amber-300 flex items-center gap-1.5"
@@ -623,7 +630,7 @@ export const DigestView: React.FC = () => {
       <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
         <div className="p-5 border-b border-slate-800 flex items-center justify-between">
           <h3 className="font-bold text-white text-sm">Dispatched Digest Archive</h3>
-          <span className="text-xs text-slate-500 font-mono">{history.length} records</span>
+          <span className="text-xs text-slate-500 font-mono">{(history || []).length} records</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -639,29 +646,29 @@ export const DigestView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-mono">
-              {history.length === 0 ? (
+              {(!Array.isArray(history) || history.length === 0) ? (
                 <tr>
                   <td colSpan={6} className="p-8 text-center text-slate-500 font-sans">
                     {loading ? 'Loading history...' : 'No daily digests dispatched yet. Click "Send Digest Now" above to test.'}
                   </td>
                 </tr>
               ) : (
-                history.map((d) => (
-                  <tr key={d.id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="p-4 font-bold text-white">{d.reportDate}</td>
-                    <td className="p-4 text-slate-300">{d.emailRecipient}</td>
-                    <td className="p-4 text-sky-400">{d.totalOrders} total ({d.confirmedOrders} confirmed)</td>
-                    <td className="p-4 text-emerald-400 font-bold">${d.totalRevenue.toFixed(2)}</td>
+                history.map((d: any) => (
+                  <tr key={d.id || Math.random()} className="hover:bg-slate-800/30 transition-colors">
+                    <td className="p-4 font-bold text-white">{d.reportDate || '-'}</td>
+                    <td className="p-4 text-slate-300">{d.emailRecipient || 'bill.nissim@gmail.com'}</td>
+                    <td className="p-4 text-sky-400">{d.totalOrders || 0} total ({d.confirmedOrders || 0} confirmed)</td>
+                    <td className="p-4 text-emerald-400 font-bold">${Number(d.totalRevenue || 0).toFixed(2)}</td>
                     <td className="p-4">
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
                         d.status === 'SENT'
                           ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                           : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                      }`} title={d.status}>
-                        {d.status.length > 25 ? d.status.substring(0, 25) + '...' : d.status}
+                      }`} title={d.status || 'UNKNOWN'}>
+                        {d.status ? (d.status.length > 25 ? d.status.substring(0, 25) + '...' : d.status) : 'UNKNOWN'}
                       </span>
                     </td>
-                    <td className="p-4 text-slate-400">{new Date(d.generatedAt).toLocaleString()}</td>
+                    <td className="p-4 text-slate-400">{d.generatedAt ? new Date(d.generatedAt).toLocaleString() : '-'}</td>
                   </tr>
                 ))
               )}
