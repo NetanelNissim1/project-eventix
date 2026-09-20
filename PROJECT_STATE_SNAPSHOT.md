@@ -81,12 +81,13 @@ Project Eventix is a high-concurrency, event-driven e-commerce platform built wi
 - **`README.md`**: Flagship markdown documentation embedded with 10 Mermaid architectural diagrams and sequence flows (rendered automatically on GitHub repo front page).
 - **`ARCHITECTURE_DIAGRAMS_AND_FLOWS.md`**: Dedicated diagram and specification reference.
 - **`PROJECT_SUMMARY.md`**: Complete architectural summary document.
-- **Remote Git Repository**: [`https://github.com/NetanelNissim1/project-eventix.git`](https://github.com/NetanelNissim1/project-eventix.git) on branch `main` (commit `cc6d7ee`).
+- **Remote Git Repository**: [`https://github.com/NetanelNissim1/project-eventix.git`](https://github.com/NetanelNissim1/project-eventix.git) on branch `main` (commit `4934358`).
 - **Live Cloud Deployments (Railway)**:
   - Frontend Application: [`https://frontend-client-production-9a03.up.railway.app/`](https://frontend-client-production-9a03.up.railway.app/)
   - Spring Cloud API Gateway: [`https://api-gateway-production-961a.up.railway.app/`](https://api-gateway-production-961a.up.railway.app/)
 - **Phase 1 (Complete)**: Role-Based Access Control (RBAC), user segregation (`ROLE_CUSTOMER` vs `ROLE_ADMIN`), 403 Forbidden barrier, Admin Console routing.
 - **Phase 2 (Complete)**: Commercial Admin Console with Store Catalog management (`POST` / `DELETE` products with Redis cache eviction), Warehouse restock tool (`POST /api/v1/inventory/restock`), and Global Order Surveillance (`GET /api/v1/orders`).
+- **Phase 3 (Complete)**: Commercial Promotions & Coupon Engine (`order-service` validation & discount deduction), Scarcity Urgency Alerts & Sold-Out purchase safeguards (`ProductDetailPage`), Admin Promotions tab, and Order Confirmation receipt dispatch notices.
 
 ---
 
