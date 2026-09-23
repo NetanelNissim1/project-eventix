@@ -1,50 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { DailyDigest, DigestScheduleConfig } from '../types';
-import { Mail, Send, CheckCircle2, Clock, Calendar, RefreshCw, Eye, Search, ShoppingCart, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Mail, Send, CheckCircle2, Clock, Calendar, RefreshCw, Eye, Search, ShoppingCart } from 'lucide-react';
 import { apiClient } from '../api/client';
-
-interface SmtpSettings {
-  host: string;
-  port: number;
-  username: string;
-  password?: string;
-  auth: boolean;
-  starttls: boolean;
-  configured: boolean;
-  googleScriptUrl?: string;
-}
 
 export const DigestView: React.FC = () => {
   const [history, setHistory] = useState<DailyDigest[]>([]);
   const [loading, setLoading] = useState(false);
   const [triggering, setTriggering] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
-  const [savingSmtp, setSavingSmtp] = useState(false);
-  const [testingSmtp, setTestingSmtp] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [smtpMsg, setSmtpMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const RAILWAY_DIGEST_BACKEND = 'https://project-eventix-production-228d.up.railway.app';
 
-  // Digest microservice endpoint configuration - default to Railway cloud backend
-  const [digestApiBase, setDigestApiBase] = useState<string>(() => {
-    const saved = localStorage.getItem('eventix_digest_api_base');
-    if (saved && saved.trim().length > 0) return saved.trim();
-    return RAILWAY_DIGEST_BACKEND;
-  });
-
   const getDigestUrl = (path: string) => {
-    const base = (digestApiBase && digestApiBase.trim().length > 0)
-      ? digestApiBase.trim().replace(/\/+$/, '')
-      : RAILWAY_DIGEST_BACKEND;
+    const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const base = isLocal ? 'http://localhost:8087' : RAILWAY_DIGEST_BACKEND;
     return `${base}${path}`;
-  };
-
-  const handleUpdateApiBase = (val: string) => {
-    const clean = val.trim().replace(/\/+$/, '');
-    const effective = clean || RAILWAY_DIGEST_BACKEND;
-    setDigestApiBase(effective);
-    localStorage.setItem('eventix_digest_api_base', effective);
   };
 
   // Schedule state
@@ -57,18 +28,6 @@ export const DigestView: React.FC = () => {
     oneOffDateTime: '',
     recipient: 'bill.nissim@gmail.com',
     active: true,
-  });
-
-  // SMTP state
-  const [smtp, setSmtp] = useState<SmtpSettings>({
-    host: 'smtp.gmail.com',
-    port: 587,
-    username: 'nati.nissim@gmail.com',
-    password: '',
-    auth: true,
-    starttls: true,
-    configured: true,
-    googleScriptUrl: 'https://script.google.com/macros/s/AKfycby0ZFfsbHH6TwO39Hw4RqE__cjrnMkdmzrN6rOeOic7OZ8qD7CU1-Pc_lfWArTp3Iia/exec',
   });
 
   // Today live summary
@@ -110,20 +69,6 @@ export const DigestView: React.FC = () => {
     }
   };
 
-  const fetchSmtp = async () => {
-    try {
-      const res = await apiClient.get(getDigestUrl('/api/v1/digest/smtp'));
-      if (res.data && typeof res.data === 'object' && !Array.isArray(res.data)) {
-        setSmtp((prev) => ({
-          ...prev,
-          ...res.data,
-        }));
-      }
-    } catch (err) {
-      console.error('Failed to fetch SMTP settings', err);
-    }
-  };
-
   const fetchTodaySummary = async () => {
     try {
       const res = await apiClient.get(getDigestUrl('/api/v1/digest/today-summary'));
@@ -146,16 +91,12 @@ export const DigestView: React.FC = () => {
       const recipient = schedule.recipient || 'bill.nissim@gmail.com';
       const endpoint = getDigestUrl(`/api/v1/digest/trigger-now?recipient=${encodeURIComponent(recipient)}`);
       const res = await apiClient.post(endpoint);
-      if (typeof res.data === 'string' && (res.data.includes('<!doctype') || res.data.includes('<html'))) {
-        setMessage(`⚠️ Backend endpoint returned HTML from web server. Please check 'daily-digest-service' is running.`);
-        return;
-      }
       if (res.status === 200) {
         const record = res.data;
-        if (record?.status === 'SENT') {
+        if (record?.status?.startsWith('SENT')) {
           setMessage(`✅ Daily digest report generated and delivered directly to ${recipient}!`);
         } else {
-          setMessage(`⚠️ Digest generated, but SMTP dispatch returned: "${record?.status}". Please verify your SMTP settings below.`);
+          setMessage(`⚠️ Digest generated: "${record?.status}".`);
         }
         fetchHistory();
         fetchSchedule();
@@ -186,102 +127,9 @@ export const DigestView: React.FC = () => {
     }
   };
 
-  const handleSaveSmtp = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setSavingSmtp(true);
-    setSmtpMsg(null);
-    try {
-      const cleanSmtp = {
-        ...smtp,
-        username: (smtp.username || 'nati.nissim@gmail.com').trim(),
-        password: (smtp.password || '').replace(/\s+/g, '').trim(),
-        googleScriptUrl: (smtp.googleScriptUrl || '').trim(),
-      };
-      const res = await apiClient.post(getDigestUrl('/api/v1/digest/smtp'), cleanSmtp);
-      if (typeof res.data === 'string' && (res.data.includes('<!doctype') || res.data.includes('<html'))) {
-        setSmtpMsg({
-          type: 'error',
-          text: `⚠️ Request reached the frontend web server (${window.location.origin}) which returned HTML instead of daily-digest-service. Configure the endpoint below.`,
-        });
-        return false;
-      }
-      if (res.status === 200 && res.data) {
-        setSmtp((prev) => ({
-          ...prev,
-          ...res.data,
-          password: cleanSmtp.password ? cleanSmtp.password : prev.password,
-          googleScriptUrl: res.data.googleScriptUrl || cleanSmtp.googleScriptUrl,
-        }));
-        setSmtpMsg({ type: 'success', text: 'Email delivery credentials and Google Cloud Webhook successfully saved and active!' });
-        return true;
-      }
-      return false;
-    } catch (err: any) {
-      setSmtpMsg({ type: 'error', text: 'Failed to update email configuration: ' + (err.message || 'error') });
-      return false;
-    } finally {
-      setSavingSmtp(false);
-    }
-  };
-
-  const handleTestSmtp = async () => {
-    if (!smtp.password && !smtp.configured && !smtp.googleScriptUrl) {
-      setSmtpMsg({
-        type: 'error',
-        text: 'Please configure Google Cloud Webhook or Google App Password before sending a test ping.',
-      });
-      return;
-    }
-    setTestingSmtp(true);
-    setSmtpMsg(null);
-    try {
-      const cleanSmtp = {
-        ...smtp,
-        username: (smtp.username || 'nati.nissim@gmail.com').trim(),
-        password: (smtp.password || '').replace(/\s+/g, '').trim(),
-        googleScriptUrl: (smtp.googleScriptUrl || '').trim(),
-      };
-      const recipient = schedule.recipient || 'bill.nissim@gmail.com';
-      const endpoint = getDigestUrl(`/api/v1/digest/smtp/test?recipient=${encodeURIComponent(recipient)}`);
-      const res = await apiClient.post(endpoint, cleanSmtp);
-
-      // Explicit detection if response is HTML from an SPA web server fallback
-      if (typeof res.data === 'string' && (res.data.includes('<!doctype') || res.data.includes('<html'))) {
-        setSmtpMsg({
-          type: 'error',
-          text: `⚠️ Request reached the frontend web server (${window.location.origin}) which returned HTML instead of daily-digest-service. Click 'Railway Backend' below to connect.`,
-        });
-        return;
-      }
-
-      if (res.data?.success) {
-        setSmtp((prev) => ({ ...prev, configured: true }));
-        setSmtpMsg({ type: 'success', text: res.data.message });
-      } else {
-        setSmtpMsg({
-          type: 'error',
-          text: res.data?.message || 'Email test failed. Please verify your Google Webhook URL or Google App Password.',
-        });
-      }
-    } catch (err: any) {
-      setSmtpMsg({
-        type: 'error',
-        text: 'Email test request failed: ' + (err.response?.data?.message || err.message || 'network error'),
-      });
-    } finally {
-      setTestingSmtp(false);
-    }
-  };
-
   useEffect(() => {
-    const saved = localStorage.getItem('eventix_digest_api_base');
-    if (!saved || saved.trim() === '' || !saved.startsWith('http')) {
-      localStorage.setItem('eventix_digest_api_base', RAILWAY_DIGEST_BACKEND);
-      setDigestApiBase(RAILWAY_DIGEST_BACKEND);
-    }
     fetchHistory();
     fetchSchedule();
-    fetchSmtp();
     fetchTodaySummary();
   }, []);
 
@@ -310,7 +158,6 @@ export const DigestView: React.FC = () => {
             onClick={() => {
               fetchHistory();
               fetchSchedule();
-              fetchSmtp();
               fetchTodaySummary();
             }}
             className="p-2.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl text-xs font-semibold transition-colors"
@@ -523,194 +370,6 @@ export const DigestView: React.FC = () => {
         </form>
       </div>
 
-      {/* SECTION: REAL SMTP MAIL SERVER CONFIGURATION */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-emerald-400" />
-            <div>
-              <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-                SMTP Real Email Gateway Configuration (הגדרות שרת שליחת מייל אמיתי ל-Gmail)
-              </h2>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Configure your real outbound mail server so emails land directly in <strong className="text-white">bill.nissim@gmail.com</strong>
-              </p>
-            </div>
-          </div>
-          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-            smtp.configured ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-          }`}>
-            {smtp.configured ? 'SMTP Configured' : 'Credentials Needed'}
-          </span>
-        </div>
-
-        {smtpMsg && (
-          <div className={`p-4 rounded-2xl text-xs flex items-center gap-2.5 animate-fade-in border ${
-            smtpMsg.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-          }`}>
-            {smtpMsg.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            ) : (
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-            )}
-            <span className="font-semibold">{smtpMsg.text}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSaveSmtp} className="space-y-4 text-xs">
-          {/* Cloud Webhook Dispatch (Recommended for Railway 100% Autonomous) */}
-          <div className="p-4 bg-gradient-to-r from-emerald-950/40 to-slate-900 border border-emerald-500/30 rounded-2xl space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span className="text-emerald-300 font-bold text-xs tracking-wide">
-                  GOOGLE CLOUD WEBHOOK (ענן אוטונומי - HTTPS PORT 443)
-                </span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
-                  Railway Cloud Active
-                </span>
-              </div>
-              <span className="text-[11px] text-slate-400">
-                שליחה ישירה מ: <strong className="text-white font-mono">{smtp.username || 'nati.nissim@gmail.com'}</strong>
-              </span>
-            </div>
-
-            <div>
-              <label className="text-slate-300 font-semibold block mb-1">
-                GOOGLE APPS SCRIPT WEB APP URL
-              </label>
-              <input
-                type="text"
-                value={smtp.googleScriptUrl || ''}
-                onChange={(e) => setSmtp({ ...smtp, googleScriptUrl: e.target.value })}
-                placeholder="https://script.google.com/macros/s/.../exec"
-                className="w-full bg-slate-950 border border-emerald-500/40 rounded-xl px-3 py-2 text-emerald-300 font-mono text-xs focus:outline-none focus:border-emerald-400"
-              />
-            </div>
-
-            <p className="text-[11px] text-slate-300 leading-relaxed">
-              ✨ <strong>חיבור ענן פעיל:</strong> המיילים נשלחים ישירות דרך גשר ה-HTTPS של גוגל בפורט 443 (שפתוח תמיד בכל שרתי הענן). השרת ב-Railway שולח את הדוחות ואת בדיקות ה-Ping באופן אוטונומי לחלוטין ל-<strong>{schedule.recipient || 'bill.nissim@gmail.com'}</strong> בלי שום צורך במחשב המקומי שלך.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className="text-slate-400 font-semibold block mb-1">SMTP HOST (גיבוי)</label>
-              <input
-                type="text"
-                required
-                value={smtp.host}
-                onChange={(e) => setSmtp({ ...smtp, host: e.target.value })}
-                placeholder="smtp.gmail.com"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-sky-500"
-              />
-            </div>
-
-            <div>
-              <label className="text-slate-400 font-semibold block mb-1">SMTP PORT</label>
-              <input
-                type="number"
-                required
-                value={smtp.port}
-                onChange={(e) => setSmtp({ ...smtp, port: parseInt(e.target.value) || 587 })}
-                placeholder="587"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-sky-500"
-              />
-            </div>
-
-            <div>
-              <label className="text-slate-400 font-semibold block mb-1">SENDER GMAIL ADDRESS (משתמש לשליחה)</label>
-              <input
-                type="email"
-                value={smtp.username}
-                onChange={(e) => setSmtp({ ...smtp, username: e.target.value })}
-                placeholder="your.email@gmail.com"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-sky-500"
-              />
-            </div>
-
-            <div>
-              <label className="text-slate-400 font-semibold block mb-1">
-                GOOGLE APP PASSWORD (סיסמת אפליקציה)
-              </label>
-              <input
-                type="password"
-                value={smtp.password || ''}
-                onChange={(e) => setSmtp({ ...smtp, password: e.target.value })}
-                placeholder="abcd efgh ijkl mnop"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-sky-500"
-              />
-            </div>
-          </div>
-
-          {/* Direct Microservice Endpoint Override */}
-          <div className="p-3.5 bg-slate-950/70 border border-slate-800 rounded-2xl text-xs space-y-2">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <label className="text-slate-300 font-semibold flex items-center gap-1.5">
-                <span>DIGEST SERVICE BACKEND ENDPOINT (כתובת שרת המיקרו-שירות)</span>
-                {digestApiBase && (
-                  <span className="px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 font-mono text-[10px] font-bold border border-sky-500/20">
-                    Custom URL Active
-                  </span>
-                )}
-              </label>
-              <div className="flex items-center gap-1.5 text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => handleUpdateApiBase('https://project-eventix-production-228d.up.railway.app')}
-                  className="px-2.5 py-1 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/30 rounded-lg font-mono transition-colors font-semibold"
-                >
-                  Railway Cloud
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleUpdateApiBase('http://localhost:8087')}
-                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded-lg font-mono transition-colors font-semibold"
-                >
-                  Local (localhost:8087)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleUpdateApiBase(RAILWAY_DIGEST_BACKEND)}
-                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-colors font-semibold"
-                >
-                  Reset Default
-                </button>
-              </div>
-            </div>
-            <input
-              type="text"
-              value={digestApiBase}
-              onChange={(e) => handleUpdateApiBase(e.target.value)}
-              placeholder="e.g. https://project-eventix-production-228d.up.railway.app"
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono placeholder-slate-500 focus:outline-none focus:border-sky-500 text-xs"
-            />
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              💡 <strong>חיבור לשרת:</strong> הכתובת מוגדרת אוטומטית לשרת הענן ב-Railway (<code className="text-emerald-300 font-mono">project-eventix-production-228d.up.railway.app</code>).
-            </p>
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
-            <button
-              type="button"
-              onClick={handleTestSmtp}
-              disabled={testingSmtp}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-xl font-bold transition-all disabled:opacity-50 inline-flex items-center gap-1.5"
-            >
-              <Send className="w-3.5 h-3.5" />
-              {testingSmtp ? 'Testing Connection...' : 'Send Test Ping to ' + (schedule.recipient || 'bill.nissim@gmail.com')}
-            </button>
-
-            <button
-              type="submit"
-              disabled={savingSmtp}
-              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all disabled:opacity-50"
-            >
-              {savingSmtp ? 'Saving...' : 'Save SMTP Credentials'}
-            </button>
-          </div>
-        </form>
-      </div>
 
       {/* SECTION: Today In-Flight Activity & Purchases Preview */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">

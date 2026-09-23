@@ -49,6 +49,9 @@ digest:
   email:
     recipient: ${DIGEST_RECIPIENT:bill.nissim@gmail.com}
     sender: ${DIGEST_SENDER:nati.nissim@gmail.com}
+  google:
+    script:
+      url: ${GOOGLE_SCRIPT_URL:https://script.google.com/macros/s/AKfycby0ZFfsbHH6TwO39Hw4RqE__cjrnMkdmzrN6rOeOic7OZ8qD7CU1-Pc_lfWArTp3Iia/exec}
 
 management:
   endpoints:
