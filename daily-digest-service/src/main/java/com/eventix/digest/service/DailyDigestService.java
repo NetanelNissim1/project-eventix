@@ -639,7 +639,7 @@ public class DailyDigestService {
                     .val-errors { color: #f87171; }
                     .val-warnings { color: #fbbf24; }
                     .section-title { font-size: 16px; font-weight: bold; color: #ffffff; margin: 28px 0 12px 0; border-left: 4px solid #38bdf8; padding-left: 10px; display: flex; align-items: center; justify-content: space-between; }
-                    table { width: 100%; border-collapse: collapse; background: #1f2937; border-radius: 12px; overflow: hidden; font-size: 12px; }
+                    table { width: 100%%; border-collapse: collapse; background: #1f2937; border-radius: 12px; overflow: hidden; font-size: 12px; }
                     th { background: #0f172a; padding: 10px; text-align: left; color: #94a3b8; text-transform: uppercase; font-size: 10px; font-weight: bold; }
                     .footer { text-align: center; color: #64748b; font-size: 12px; margin-top: 32px; border-top: 1px solid #1f2937; padding-top: 20px; }
                 </style>
