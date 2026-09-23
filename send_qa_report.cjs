@@ -108,6 +108,6 @@ sendRequest(webhookUrl, postData, (err, code, body) => {
   if (err) {
     console.error('Error dispatching QA report email:', err.message);
   } else {
-    console.log(`✅ QA report email dispatched to ${recipient}! HTTP ${code}`);
+    console.log(`[SUCCESS] QA report email dispatched to ${recipient}! HTTP ${code}`);
   }
 });

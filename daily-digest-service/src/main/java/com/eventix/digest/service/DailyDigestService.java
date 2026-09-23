@@ -323,7 +323,7 @@ public class DailyDigestService {
                 MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
                 helper.setFrom(defaultSender, "Project Eventix Operations");
                 helper.setTo(effectiveRecipient);
-                helper.setSubject("📊 Eventix Daily Digest Report - " + today + " | Customer Activity & Purchases");
+                helper.setSubject("Eventix Daily Digest Report - " + today + " | Customer Activity & Purchases");
                 helper.setText(htmlContent, true);
 
                 mailSender.send(message);
@@ -444,7 +444,7 @@ public class DailyDigestService {
         if (activeScriptUrl != null && !activeScriptUrl.isBlank()) {
             String subject = "Eventix Cloud Email Connection Verified";
             String htmlContent = "<div style='font-family: Arial, sans-serif; padding: 24px; color: #1e293b; background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;'>"
-                + "<h2 style='color: #059669; margin-top: 0;'>✅ Eventix Cloud Email Connection Verified</h2>"
+                + "<h2 style='color: #059669; margin-top: 0;'>Eventix Cloud Email Connection Verified</h2>"
                 + "<p style='font-size: 15px; line-height: 1.6;'>Congratulations! This automated test confirms that Project Eventix is successfully connected to your Google Cloud Webhook and can deliver real emails directly from <strong>" + defaultSender + "</strong> to <strong>" + testTarget + "</strong> without any local server dependencies.</p>"
                 + "<div style='background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 12px 16px; margin: 16px 0; border-radius: 4px;'>"
                 + "  <strong style='color: #065f46;'>Status:</strong> <span style='color: #047857;'>100% Autonomous Cloud Operation Active on Railway</span>"
@@ -478,7 +478,7 @@ public class DailyDigestService {
             }
             helper.setFrom(sender);
             helper.setTo(testTarget);
-            helper.setSubject("✅ Eventix SMTP Connection Verified");
+            helper.setSubject("Eventix SMTP Connection Verified");
             helper.setText("Congratulations! This automated test confirms that Project Eventix is successfully connected to your SMTP mail server (" + sender + ") and can deliver real emails directly to " + testTarget + ".");
             mailSender.send(message);
             log.info("Successfully sent SMTP test email from {} to {}", sender, testTarget);
@@ -605,7 +605,7 @@ public class DailyDigestService {
                 String cleanKey = k != null ? k.replaceAll("[\\u0590-\\u05FF]", "").trim() : "Catalog Query";
                 if (cleanKey.isBlank()) cleanKey = "Catalog Query";
                 searchesHtml.append("<span style='background: #1e293b; border: 1px solid #475569; padding: 4px 10px; border-radius: 20px; font-size: 12px; color: #38bdf8;'>")
-                    .append("🔍 \"").append(cleanKey).append("\" (").append(v.get()).append(" searches)</span> ");
+                    .append("\"").append(cleanKey).append("\" (").append(v.get()).append(" searches)</span> ");
             });
             searchesHtml.append("</div>");
         }
@@ -656,7 +656,7 @@ public class DailyDigestService {
             <body>
                 <div class="container">
                     <div class="header">
-                        <h1>⚡ Project Eventix - Executive Daily Digest</h1>
+                        <h1>Project Eventix - Executive Daily Digest</h1>
                         <div class="date">Daily Operations & Customer Activity Summary for <strong>%s</strong></div>
                         <div class="badge">Dispatched directly to: %s</div>
                     </div>
@@ -691,7 +691,7 @@ public class DailyDigestService {
 
                     <!-- Section 1: Customer Purchases Breakdown -->
                     <div class="section-title">
-                        🛒 Customer Purchases Surveillance (%d recorded)
+                        Customer Purchases Surveillance (%d recorded)
                     </div>
                     <table>
                         <thead>
@@ -710,7 +710,7 @@ public class DailyDigestService {
 
                     <!-- Section 2: Customer Catalog Searches -->
                     <div class="section-title">
-                        🔍 Store Catalog Searches (%d unique queries)
+                        Store Catalog Searches (%d unique queries)
                     </div>
                     <div style="background: #1f2937; padding: 16px; border-radius: 12px; border: 1px solid #374151;">
                         %s
@@ -718,7 +718,7 @@ public class DailyDigestService {
 
                     <!-- Section 3: Customer Actions & Activity Log -->
                     <div class="section-title">
-                        ⚡ Customer Operations & Activity Stream (Latest 20)
+                        Customer Operations & Activity Stream (Latest 20)
                     </div>
                     <table>
                         <thead>
@@ -786,8 +786,8 @@ public class DailyDigestService {
             <body>
                 <div class="card">
                     <div class="header">
-                        <span class="badge">QUALITY GATE PASSED ✅</span>
-                        <div class="title">Eventix Cloud — Automated QA & System Health Report</div>
+                        <span class="badge">QUALITY GATE: PASSED</span>
+                        <div class="title">Eventix Cloud - Automated QA & System Health Report</div>
                         <div class="subtitle">Comprehensive test results across all 8 microservices & frontend client</div>
                     </div>
 
@@ -880,7 +880,7 @@ public class DailyDigestService {
 
                     <div style="background-color: #161f30; border-left: 4px solid #10b981; padding: 14px 18px; border-radius: 6px; margin: 20px 0;">
                         <strong style="color: #34d399;">Zero Regressions Detected:</strong>
-                        <span style="color: #cbd5e1; font-size: 13px;">All 49 tests passed with 0 failures and 0 skipped tests. Code coverage exceeds required quality gate (≥ 70%% threshold).</span>
+                        <span style="color: #cbd5e1; font-size: 13px;">All 49 tests passed with 0 failures and 0 skipped tests. Code coverage exceeds required quality gate (>= 70%% threshold).</span>
                     </div>
 
                     <div style="text-align: center; margin: 24px 0;">
