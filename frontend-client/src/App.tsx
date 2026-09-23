@@ -4,18 +4,7 @@ import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
-// Standalone Dedicated QA Dashboard View
-const QaStandaloneView: React.FC = () => {
-  return (
-    <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden', backgroundColor: '#070a12' }}>
-      <iframe
-        src="/qa.html"
-        title="Eventix QA Dashboard"
-        style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-      />
-    </div>
-  );
-};
+import { QaDashboardPage } from './pages/QaDashboardPage';
 
 // Pages
 import { HomePage } from './pages/HomePage';
@@ -44,7 +33,7 @@ const AppContent: React.FC = () => {
   const isQa = location.pathname === '/qa' || location.pathname === '/qa/' || location.pathname.startsWith('/qa');
 
   if (isQa) {
-    return <QaStandaloneView />;
+    return <QaDashboardPage />;
   }
 
   return (
@@ -130,8 +119,8 @@ const AppContent: React.FC = () => {
           <Route path="/digest" element={<DigestPage />} />
 
           {/* Standalone QA Dashboard Direct Route */}
-          <Route path="/qa" element={<QaStandaloneView />} />
-          <Route path="/qa/*" element={<QaStandaloneView />} />
+          <Route path="/qa" element={<QaDashboardPage />} />
+          <Route path="/qa/*" element={<QaDashboardPage />} />
 
           {/* 404 Fallback */}
           <Route path="*" element={<NotFoundPage />} />
