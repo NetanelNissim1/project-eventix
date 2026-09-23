@@ -8,6 +8,7 @@ public class SmtpConfigDto {
     private boolean auth;
     private boolean starttls;
     private boolean configured;
+    private String googleScriptUrl;
 
     public SmtpConfigDto() {}
 
@@ -41,4 +42,7 @@ public class SmtpConfigDto {
 
     public boolean isConfigured() { return configured; }
     public void setConfigured(boolean configured) { this.configured = configured; }
+
+    public String getGoogleScriptUrl() { return googleScriptUrl; }
+    public void setGoogleScriptUrl(String googleScriptUrl) { this.googleScriptUrl = googleScriptUrl; }
 }

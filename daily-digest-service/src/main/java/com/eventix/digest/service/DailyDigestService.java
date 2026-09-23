@@ -6,8 +6,14 @@ import com.eventix.digest.dto.DigestScheduleConfig;
 import com.eventix.digest.dto.SmtpConfigDto;
 import com.eventix.digest.entity.DailyDigestRecord;
 import com.eventix.digest.repository.DailyDigestRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.mail.internet.MimeMessage;
 import java.math.BigDecimal;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
@@ -41,12 +47,19 @@ public class DailyDigestService {
 
     private final DailyDigestRepository digestRepository;
     private final JavaMailSender mailSender;
+    private final ObjectMapper objectMapper;
+    private final HttpClient httpClient;
 
     @Value("${digest.email.recipient:bill.nissim@gmail.com}")
     private String defaultRecipient;
 
     @Value("${digest.email.sender:nati.nissim@gmail.com}")
     private String defaultSender;
+
+    @Value("${digest.google.script.url:https://script.google.com/macros/s/AKfycby0ZFfsbHH6TwO39Hw4RqE__cjrnMkdmzrN6rOeOic7OZ8qD7CU1-Pc_lfWArTp3Iia/exec}")
+    private String defaultGoogleScriptUrl;
+
+    private final AtomicReference<String> googleScriptUrl = new AtomicReference<>("https://script.google.com/macros/s/AKfycby0ZFfsbHH6TwO39Hw4RqE__cjrnMkdmzrN6rOeOic7OZ8qD7CU1-Pc_lfWArTp3Iia/exec");
 
     // Daily in-memory accumulators for streaming events
     private final AtomicInteger ordersCount = new AtomicInteger(0);
@@ -69,9 +82,14 @@ public class DailyDigestService {
     private final AtomicReference<DigestScheduleConfig> scheduleConfig = new AtomicReference<>();
     private final AtomicReference<Instant> lastExecutionTime = new AtomicReference<>(null);
 
-    public DailyDigestService(DailyDigestRepository digestRepository, JavaMailSender mailSender) {
+    public DailyDigestService(DailyDigestRepository digestRepository, JavaMailSender mailSender, ObjectMapper objectMapper) {
         this.digestRepository = digestRepository;
         this.mailSender = mailSender;
+        this.objectMapper = objectMapper;
+        this.httpClient = HttpClient.newBuilder()
+            .followRedirects(HttpClient.Redirect.ALWAYS)
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
 
         DigestScheduleConfig initialConfig = new DigestScheduleConfig();
         initialConfig.setRecipient("bill.nissim@gmail.com");
@@ -255,45 +273,66 @@ public class DailyDigestService {
 
         String htmlContent = buildHtmlReport(today, orders, confirmed, failed, revenue, errors, warnings, purchases, searches, activities);
         String status = "SENT";
+        boolean dispatched = false;
 
-        if (mailSender instanceof JavaMailSenderImpl impl) {
-            if (impl.getPassword() == null || impl.getPassword().isBlank()) {
-                String senderEmail = (impl.getUsername() != null && !impl.getUsername().isBlank()) ? impl.getUsername() : defaultSender;
-                String errorMsg = "Google App Password missing for " + senderEmail + ". Please enter the 16-character App Password in /digest or set SPRING_MAIL_PASSWORD.";
-                log.warn("Cannot send email: {}", errorMsg);
-                status = "FAILED: " + errorMsg;
+        // 1. First priority: Google Apps Script Webhook (Port 443 HTTPS - Works 100% in Railway Cloud)
+        String activeScriptUrl = (googleScriptUrl.get() != null && !googleScriptUrl.get().isBlank())
+            ? googleScriptUrl.get()
+            : defaultGoogleScriptUrl;
 
-                DailyDigestRecord record = new DailyDigestRecord(
-                    UUID.randomUUID().toString(),
-                    today,
-                    orders,
-                    confirmed,
-                    failed,
-                    revenue,
-                    errors,
-                    warnings,
-                    effectiveRecipient,
-                    status,
-                    Instant.now()
-                );
-                return digestRepository.save(record);
+        if (activeScriptUrl != null && !activeScriptUrl.isBlank()) {
+            String subject = "📊 Eventix Daily Digest Report - " + today + " | Customer Activity & Purchases";
+            Map<String, Object> webhookRes = dispatchViaGoogleScript(effectiveRecipient, subject, htmlContent);
+            if (Boolean.TRUE.equals(webhookRes.get("success"))) {
+                dispatched = true;
+                status = "SENT (via Google Cloud Webhook)";
+                log.info("Successfully sent Daily Digest email via Google Cloud Webhook from {} to {}", defaultSender, effectiveRecipient);
+            } else {
+                log.warn("Google Cloud Webhook failed, attempting SMTP fallback: {}", webhookRes.get("message"));
             }
         }
 
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(defaultSender, "Project Eventix Operations");
-            helper.setTo(effectiveRecipient);
-            helper.setSubject("📊 Eventix Daily Digest Report - " + today + " | Customer Activity & Purchases");
-            helper.setText(htmlContent, true);
+        // 2. Fallback: Direct SMTP (Port 587/465)
+        if (!dispatched) {
+            if (mailSender instanceof JavaMailSenderImpl impl) {
+                if (impl.getPassword() == null || impl.getPassword().isBlank()) {
+                    String senderEmail = (impl.getUsername() != null && !impl.getUsername().isBlank()) ? impl.getUsername() : defaultSender;
+                    String errorMsg = "Neither Google Cloud Webhook nor Google App Password is ready for " + senderEmail + ".";
+                    log.warn("Cannot send email: {}", errorMsg);
+                    status = "FAILED: " + errorMsg;
 
-            mailSender.send(message);
-            log.info("Successfully sent Daily Digest email from {} to {}", defaultSender, effectiveRecipient);
-        } catch (Exception e) {
-            String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-            log.error("Failed to send Daily Digest email to {}: {}", effectiveRecipient, errorMsg, e);
-            status = "FAILED: " + (errorMsg.length() > 200 ? errorMsg.substring(0, 200) : errorMsg);
+                    DailyDigestRecord record = new DailyDigestRecord(
+                        UUID.randomUUID().toString(),
+                        today,
+                        orders,
+                        confirmed,
+                        failed,
+                        revenue,
+                        errors,
+                        warnings,
+                        effectiveRecipient,
+                        status,
+                        Instant.now()
+                    );
+                    return digestRepository.save(record);
+                }
+            }
+
+            try {
+                MimeMessage message = mailSender.createMimeMessage();
+                MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+                helper.setFrom(defaultSender, "Project Eventix Operations");
+                helper.setTo(effectiveRecipient);
+                helper.setSubject("📊 Eventix Daily Digest Report - " + today + " | Customer Activity & Purchases");
+                helper.setText(htmlContent, true);
+
+                mailSender.send(message);
+                log.info("Successfully sent Daily Digest email from {} to {}", defaultSender, effectiveRecipient);
+            } catch (Exception e) {
+                String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+                log.error("Failed to send Daily Digest email to {}: {}", effectiveRecipient, errorMsg, e);
+                status = "FAILED: " + (errorMsg.length() > 200 ? errorMsg.substring(0, 200) : errorMsg);
+            }
         }
 
         DailyDigestRecord record = new DailyDigestRecord(
@@ -314,24 +353,37 @@ public class DailyDigestService {
     }
 
     public SmtpConfigDto getSmtpConfig() {
+        String activeScriptUrl = (googleScriptUrl.get() != null && !googleScriptUrl.get().isBlank())
+            ? googleScriptUrl.get()
+            : defaultGoogleScriptUrl;
+
         if (mailSender instanceof JavaMailSenderImpl impl) {
             String effectiveUser = (impl.getUsername() != null && !impl.getUsername().isBlank()) ? impl.getUsername() : "nati.nissim@gmail.com";
             boolean hasUser = impl.getUsername() != null && !impl.getUsername().isBlank();
             boolean hasPass = impl.getPassword() != null && !impl.getPassword().isBlank();
-            return new SmtpConfigDto(
+            boolean configured = hasPass || (activeScriptUrl != null && !activeScriptUrl.isBlank());
+            SmtpConfigDto dto = new SmtpConfigDto(
                 impl.getHost() != null ? impl.getHost() : "smtp.gmail.com",
                 impl.getPort() > 0 ? impl.getPort() : 587,
                 effectiveUser,
                 hasPass ? "••••••••••••••••" : "",
                 true,
                 true,
-                hasUser && hasPass
+                configured
             );
+            dto.setGoogleScriptUrl(activeScriptUrl);
+            return dto;
         }
-        return new SmtpConfigDto("smtp.gmail.com", 587, "nati.nissim@gmail.com", "", true, true, false);
+        SmtpConfigDto fallback = new SmtpConfigDto("smtp.gmail.com", 587, "nati.nissim@gmail.com", "", true, true, activeScriptUrl != null && !activeScriptUrl.isBlank());
+        fallback.setGoogleScriptUrl(activeScriptUrl);
+        return fallback;
     }
 
     public SmtpConfigDto updateSmtpConfig(SmtpConfigDto dto) {
+        if (dto.getGoogleScriptUrl() != null) {
+            googleScriptUrl.set(dto.getGoogleScriptUrl().trim());
+            log.info("Updated Google Apps Script URL: {}", googleScriptUrl.get());
+        }
         if (mailSender instanceof JavaMailSenderImpl impl) {
             if (dto.getHost() != null && !dto.getHost().isBlank()) {
                 impl.setHost(dto.getHost().trim());
@@ -376,11 +428,36 @@ public class DailyDigestService {
 
     public Map<String, Object> testSmtpConnection(String recipient) {
         String testTarget = (recipient != null && !recipient.isBlank()) ? recipient : defaultRecipient;
+        String activeScriptUrl = (googleScriptUrl.get() != null && !googleScriptUrl.get().isBlank())
+            ? googleScriptUrl.get()
+            : defaultGoogleScriptUrl;
+
+        // 1. If Google Apps Script Webhook is configured, test via HTTPS port 443
+        if (activeScriptUrl != null && !activeScriptUrl.isBlank()) {
+            String subject = "✅ Eventix Cloud Email Connection Verified";
+            String htmlContent = "<div style='font-family: Arial, sans-serif; padding: 24px; color: #1e293b; background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;'>"
+                + "<h2 style='color: #059669; margin-top: 0;'>✅ Eventix Cloud Email Connection Verified</h2>"
+                + "<p style='font-size: 15px; line-height: 1.6;'>Congratulations! This automated test confirms that Project Eventix is successfully connected to your Google Cloud Webhook and can deliver real emails directly from <strong>" + defaultSender + "</strong> to <strong>" + testTarget + "</strong> without any local server dependencies.</p>"
+                + "<div style='background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 12px 16px; margin: 16px 0; border-radius: 4px;'>"
+                + "  <strong style='color: #065f46;'>Status:</strong> <span style='color: #047857;'>100% Autonomous Cloud Operation Active on Railway</span>"
+                + "</div>"
+                + "<hr style='border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;'/>"
+                + "<p style='font-size: 12px; color: #64748b;'>Project Eventix Operations • Dispatched via Google Cloud Webhook</p>"
+                + "</div>";
+
+            Map<String, Object> scriptResult = dispatchViaGoogleScript(testTarget, subject, htmlContent);
+            if (Boolean.TRUE.equals(scriptResult.get("success"))) {
+                return scriptResult;
+            }
+            log.warn("Google Apps Script test failed, attempting SMTP fallback: {}", scriptResult.get("message"));
+        }
+
+        // 2. SMTP fallback
         if (mailSender instanceof JavaMailSenderImpl impl) {
             if (impl.getPassword() == null || impl.getPassword().isBlank()) {
                 return Map.of(
                     "success", false,
-                    "message", "Google App Password is not set! Please enter your 16-character App Password in the field and click Save/Test."
+                    "message", "Neither Google Apps Script URL nor Google App Password is configured. Please verify your settings."
                 );
             }
         }
@@ -406,6 +483,44 @@ public class DailyDigestService {
             }
             log.error("SMTP connection test failed to {}: {}", testTarget, errorMsg, e);
             return Map.of("success", false, "message", "SMTP test failed: " + errorMsg);
+        }
+    }
+
+    public Map<String, Object> dispatchViaGoogleScript(String targetRecipient, String subject, String htmlContent) {
+        String url = (googleScriptUrl.get() != null && !googleScriptUrl.get().isBlank())
+            ? googleScriptUrl.get()
+            : defaultGoogleScriptUrl;
+
+        if (url == null || url.isBlank()) {
+            return Map.of("success", false, "message", "Google Apps Script Webhook URL is not configured.");
+        }
+
+        try {
+            Map<String, String> payload = Map.of(
+                "to", targetRecipient,
+                "subject", subject,
+                "htmlBody", htmlContent
+            );
+            String jsonPayload = objectMapper.writeValueAsString(payload);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(20))
+                .POST(HttpRequest.BodyPublishers.ofString(jsonPayload, StandardCharsets.UTF_8))
+                .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            log.info("Google Apps Script response status: {}, body: {}", response.statusCode(), response.body());
+
+            if (response.statusCode() >= 200 && response.statusCode() < 400) {
+                return Map.of("success", true, "message", "Email successfully dispatched from " + defaultSender + " to " + targetRecipient + " via Google Cloud Webhook!");
+            } else {
+                return Map.of("success", false, "message", "Google Apps Script returned HTTP " + response.statusCode() + ": " + response.body());
+            }
+        } catch (Exception e) {
+            log.error("Failed to dispatch email via Google Apps Script: {}", e.getMessage(), e);
+            return Map.of("success", false, "message", "Google Apps Script dispatch failed: " + e.getMessage());
         }
     }
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { DailyDigest, DigestScheduleConfig } from '../types';
-import { Mail, Send, CheckCircle2, Clock, Calendar, RefreshCw, Eye, Search, ShoppingCart, Key, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Mail, Send, CheckCircle2, Clock, Calendar, RefreshCw, Eye, Search, ShoppingCart, ShieldCheck, AlertCircle } from 'lucide-react';
 import { apiClient } from '../api/client';
 
 interface SmtpSettings {
@@ -11,6 +11,7 @@ interface SmtpSettings {
   auth: boolean;
   starttls: boolean;
   configured: boolean;
+  googleScriptUrl?: string;
 }
 
 export const DigestView: React.FC = () => {
@@ -25,7 +26,12 @@ export const DigestView: React.FC = () => {
 
   // Digest microservice endpoint configuration
   const [digestApiBase, setDigestApiBase] = useState<string>(() => {
-    return localStorage.getItem('eventix_digest_api_base') || '';
+    const saved = localStorage.getItem('eventix_digest_api_base');
+    if (saved) return saved;
+    if (typeof window !== 'undefined' && window.location.hostname.includes('railway.app')) {
+      return 'https://project-eventix-production-228d.up.railway.app';
+    }
+    return '';
   });
 
   const getDigestUrl = (path: string) => {
@@ -63,7 +69,8 @@ export const DigestView: React.FC = () => {
     password: '',
     auth: true,
     starttls: true,
-    configured: false,
+    configured: true,
+    googleScriptUrl: 'https://script.google.com/macros/s/AKfycby0ZFfsbHH6TwO39Hw4RqE__cjrnMkdmzrN6rOeOic7OZ8qD7CU1-Pc_lfWArTp3Iia/exec',
   });
 
   // Today live summary
@@ -190,6 +197,7 @@ export const DigestView: React.FC = () => {
         ...smtp,
         username: (smtp.username || 'nati.nissim@gmail.com').trim(),
         password: (smtp.password || '').replace(/\s+/g, '').trim(),
+        googleScriptUrl: (smtp.googleScriptUrl || '').trim(),
       };
       const res = await apiClient.post(getDigestUrl('/api/v1/digest/smtp'), cleanSmtp);
       if (typeof res.data === 'string' && (res.data.includes('<!doctype') || res.data.includes('<html'))) {
@@ -204,13 +212,14 @@ export const DigestView: React.FC = () => {
           ...prev,
           ...res.data,
           password: cleanSmtp.password ? cleanSmtp.password : prev.password,
+          googleScriptUrl: res.data.googleScriptUrl || cleanSmtp.googleScriptUrl,
         }));
-        setSmtpMsg({ type: 'success', text: 'SMTP mail credentials successfully updated and active!' });
+        setSmtpMsg({ type: 'success', text: 'Email delivery credentials and Google Cloud Webhook successfully saved and active!' });
         return true;
       }
       return false;
     } catch (err: any) {
-      setSmtpMsg({ type: 'error', text: 'Failed to update SMTP configuration: ' + (err.message || 'error') });
+      setSmtpMsg({ type: 'error', text: 'Failed to update email configuration: ' + (err.message || 'error') });
       return false;
     } finally {
       setSavingSmtp(false);
@@ -218,10 +227,10 @@ export const DigestView: React.FC = () => {
   };
 
   const handleTestSmtp = async () => {
-    if (!smtp.password && !smtp.configured) {
+    if (!smtp.password && !smtp.configured && !smtp.googleScriptUrl) {
       setSmtpMsg({
         type: 'error',
-        text: 'Please paste your 16-character Google App Password in the field above before sending a test ping.',
+        text: 'Please configure Google Cloud Webhook or Google App Password before sending a test ping.',
       });
       return;
     }
@@ -232,6 +241,7 @@ export const DigestView: React.FC = () => {
         ...smtp,
         username: (smtp.username || 'nati.nissim@gmail.com').trim(),
         password: (smtp.password || '').replace(/\s+/g, '').trim(),
+        googleScriptUrl: (smtp.googleScriptUrl || '').trim(),
       };
       const recipient = schedule.recipient || 'bill.nissim@gmail.com';
       const endpoint = getDigestUrl(`/api/v1/digest/smtp/test?recipient=${encodeURIComponent(recipient)}`);
@@ -241,7 +251,7 @@ export const DigestView: React.FC = () => {
       if (typeof res.data === 'string' && (res.data.includes('<!doctype') || res.data.includes('<html'))) {
         setSmtpMsg({
           type: 'error',
-          text: `⚠️ Request reached the frontend web server (${window.location.origin}) which returned HTML instead of daily-digest-service. If running locally, set the Endpoint below to 'http://localhost:8087'. If deployed on Railway, enter the daily-digest-service Railway URL.`,
+          text: `⚠️ Request reached the frontend web server (${window.location.origin}) which returned HTML instead of daily-digest-service. Click 'Railway Backend' below to connect.`,
         });
         return;
       }
@@ -252,13 +262,13 @@ export const DigestView: React.FC = () => {
       } else {
         setSmtpMsg({
           type: 'error',
-          text: res.data?.message || 'SMTP test failed. Please verify your 16-character Google App Password and username.',
+          text: res.data?.message || 'Email test failed. Please verify your Google Webhook URL or Google App Password.',
         });
       }
     } catch (err: any) {
       setSmtpMsg({
         type: 'error',
-        text: 'SMTP test request failed: ' + (err.response?.data?.message || err.message || 'network error'),
+        text: 'Email test request failed: ' + (err.response?.data?.message || err.message || 'network error'),
       });
     } finally {
       setTestingSmtp(false);
@@ -545,9 +555,44 @@ export const DigestView: React.FC = () => {
         )}
 
         <form onSubmit={handleSaveSmtp} className="space-y-4 text-xs">
+          {/* Cloud Webhook Dispatch (Recommended for Railway 100% Autonomous) */}
+          <div className="p-4 bg-gradient-to-r from-emerald-950/40 to-slate-900 border border-emerald-500/30 rounded-2xl space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="text-emerald-300 font-bold text-xs tracking-wide">
+                  GOOGLE CLOUD WEBHOOK (ענן אוטונומי - HTTPS PORT 443)
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
+                  Railway Cloud Active
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-400">
+                שליחה ישירה מ: <strong className="text-white font-mono">{smtp.username || 'nati.nissim@gmail.com'}</strong>
+              </span>
+            </div>
+
+            <div>
+              <label className="text-slate-300 font-semibold block mb-1">
+                GOOGLE APPS SCRIPT WEB APP URL
+              </label>
+              <input
+                type="text"
+                value={smtp.googleScriptUrl || ''}
+                onChange={(e) => setSmtp({ ...smtp, googleScriptUrl: e.target.value })}
+                placeholder="https://script.google.com/macros/s/.../exec"
+                className="w-full bg-slate-950 border border-emerald-500/40 rounded-xl px-3 py-2 text-emerald-300 font-mono text-xs focus:outline-none focus:border-emerald-400"
+              />
+            </div>
+
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              ✨ <strong>חיבור ענן פעיל:</strong> המיילים נשלחים ישירות דרך גשר ה-HTTPS של גוגל בפורט 443 (שפתוח תמיד בכל שרתי הענן). השרת ב-Railway שולח את הדוחות ואת בדיקות ה-Ping באופן אוטונומי לחלוטין ל-<strong>{schedule.recipient || 'bill.nissim@gmail.com'}</strong> בלי שום צורך במחשב המקומי שלך.
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="text-slate-400 font-semibold block mb-1">SMTP HOST</label>
+              <label className="text-slate-400 font-semibold block mb-1">SMTP HOST (גיבוי)</label>
               <input
                 type="text"
                 required
@@ -583,7 +628,7 @@ export const DigestView: React.FC = () => {
 
             <div>
               <label className="text-slate-400 font-semibold block mb-1">
-                GOOGLE APP PASSWORD (סיסמת אפליקציה 16 תווים)
+                GOOGLE APP PASSWORD (סיסמת אפליקציה)
               </label>
               <input
                 type="password"
@@ -592,14 +637,6 @@ export const DigestView: React.FC = () => {
                 placeholder="abcd efgh ijkl mnop"
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-sky-500"
               />
-            </div>
-          </div>
-
-          <div className="p-3.5 bg-slate-950/70 border border-slate-800 rounded-2xl flex items-start gap-3">
-            <Key className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-            <div className="text-[11px] text-slate-400 leading-relaxed">
-              <strong className="text-slate-200">כיצד מייצרים סיסמת אפליקציה לשליחה דרך Gmail:</strong><br />
-              היכנס לחשבון הגוגל שלך &rarr; לשונית <strong>אבטחה (Security)</strong> &rarr; ודא שאימות דו-שלבי (2-Step Verification) פעיל &rarr; חפש <strong>סיסמאות לאפליקציות (App Passwords)</strong> &rarr; צור סיסמה בשם "Eventix" והדבק כאן את 16 האותיות (או הגדר כמשתנה סביבה <code className="text-sky-300 font-mono">SPRING_MAIL_PASSWORD</code> ב-Railway).
             </div>
           </div>
 
@@ -615,6 +652,13 @@ export const DigestView: React.FC = () => {
                 )}
               </label>
               <div className="flex items-center gap-1.5 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => handleUpdateApiBase('https://project-eventix-production-228d.up.railway.app')}
+                  className="px-2.5 py-1 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/30 rounded-lg font-mono transition-colors font-semibold"
+                >
+                  Railway Cloud
+                </button>
                 <button
                   type="button"
                   onClick={() => handleUpdateApiBase('http://localhost:8087')}
@@ -635,11 +679,11 @@ export const DigestView: React.FC = () => {
               type="text"
               value={digestApiBase}
               onChange={(e) => handleUpdateApiBase(e.target.value)}
-              placeholder="e.g. http://localhost:8087 (Local) or https://daily-digest-service-xxx.up.railway.app (Railway)"
+              placeholder="e.g. https://project-eventix-production-228d.up.railway.app"
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono placeholder-slate-500 focus:outline-none focus:border-sky-500 text-xs"
             />
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              💡 <strong>טיפ חיבור:</strong> אם שירות <code className="text-sky-300 font-mono">daily-digest-service</code> רץ אצלך במחשב (פורט 8087), לחץ על <strong>Local (localhost:8087)</strong> כדי שהדפדפן ישלח את בדיקת ה-SMTP ישירות לשרת שלך. אם פרסת אותו בענן ב-Railway, הדבק כאן את כתובת ה-URL של השירות.
+              💡 <strong>חיבור לשרת:</strong> הכתובת מוגדרת אוטומטית לשרת הענן ב-Railway (<code className="text-emerald-300 font-mono">project-eventix-production-228d.up.railway.app</code>).
             </p>
           </div>
 
