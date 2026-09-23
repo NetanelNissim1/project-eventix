@@ -20,7 +20,7 @@ describe('useCartStore Unit Tests', () => {
     name: 'Logitech MX Master 3S',
     description: 'Wireless Performance Mouse',
     price: 99.99,
-    category: 'Accessories',
+    category: { id: 'cat-acc', name: 'Accessories' },
     imageUrl: 'https://example.com/mouse.jpg',
   };
 
@@ -29,7 +29,7 @@ describe('useCartStore Unit Tests', () => {
     name: 'Keychron Q1 Pro',
     description: 'Wireless Custom Mechanical Keyboard',
     price: 199.99,
-    category: 'Keyboards',
+    category: { id: 'cat-keyboards', name: 'Keyboards' },
     imageUrl: 'https://example.com/keyboard.jpg',
   };
 

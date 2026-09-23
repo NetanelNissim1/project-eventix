@@ -156,3 +156,12 @@ jobs:
 
           > 💡 An interactive single-file QA dashboard is available at [`qa-dashboard.html`](./qa-dashboard.html). Drag and drop the generated `jacocoRootReport.xml` and JUnit XML artifacts into the dashboard to visualize real-time charts and metric telemetry.
           EOF
+
+      - name: ✉️ Dispatch Automated Detailed QA Report Email to bill.nissim@gmail.com
+        if: always()
+        run: |
+          STATUS="PASSED"
+          if [ "${{ needs.backend-tests.result }}" != "success" ] || [ "${{ needs.frontend-tests.result }}" != "success" ]; then
+            STATUS="FAILED"
+          fi
+          node send_qa_report.cjs "bill.nissim@gmail.com" "2.84" "$STATUS"

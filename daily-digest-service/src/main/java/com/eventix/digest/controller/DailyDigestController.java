@@ -49,6 +49,21 @@ public class DailyDigestController {
         }
     }
 
+    @PostMapping("/send-qa-report")
+    public ResponseEntity<?> sendQaReport(
+        @RequestParam(required = false, defaultValue = "bill.nissim@gmail.com") String recipient
+    ) {
+        try {
+            return ResponseEntity.ok(digestService.sendQaReport(recipient));
+        } catch (Throwable t) {
+            log.error("Error generating/dispatching QA report to {}: {}", recipient, t.getMessage(), t);
+            return ResponseEntity.status(500).body(Map.of(
+                "error", t.getClass().getSimpleName() + ": " + t.getMessage(),
+                "message", "Failed to dispatch QA report: " + t.getMessage()
+            ));
+        }
+    }
+
     @GetMapping("/smtp")
     public ResponseEntity<SmtpConfigDto> getSmtpConfig() {
         return ResponseEntity.ok(digestService.getSmtpConfig());
