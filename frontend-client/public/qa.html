@@ -1064,8 +1064,8 @@ async function sendFullTestReportEmail() {
       const webhookUrl = 'https://script.google.com/macros/s/AKfycby0ZFfsbHH6TwO39Hw4RqE__cjrnMkdmzrN6rOeOic7OZ8qD7CU1-Pc_lfWArTp3Iia/exec';
       const payload = {
         to: 'bill.nissim@gmail.com',
-        subject: '🧪 Eventix Cloud Automated QA Test Suite Report — 49/49 PASSED (100%)',
-        htmlBody: `<h2>Eventix Cloud QA Report</h2><p>All 49 tests passed across 9 microservices with 88.4% line coverage!</p><p><a href="https://frontend-client-production-9a03.up.railway.app/qa.html">Open Standalone QA Dashboard</a></p>`
+        subject: 'Eventix Cloud Automated QA Test Suite Report - 49/49 PASSED (100%)',
+        htmlBody: `<h2>Eventix Cloud QA Report</h2><p>All 49 tests passed across 9 microservices with 88.4% line coverage!</p><p><a href="https://frontend-client-production-9a03.up.railway.app/qa">Open Standalone QA Dashboard</a></p>`
       };
       await fetch(webhookUrl, {
         method: 'POST',

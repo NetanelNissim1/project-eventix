@@ -281,7 +281,7 @@ public class DailyDigestService {
             : defaultGoogleScriptUrl;
 
         if (activeScriptUrl != null && !activeScriptUrl.isBlank()) {
-            String subject = "📊 Eventix Daily Digest Report - " + today + " | Customer Activity & Purchases";
+            String subject = "Eventix Daily Digest Report - " + today + " | Customer Activity & Purchases";
             Map<String, Object> webhookRes = dispatchViaGoogleScript(effectiveRecipient, subject, htmlContent);
             if (Boolean.TRUE.equals(webhookRes.get("success"))) {
                 dispatched = true;
@@ -442,7 +442,7 @@ public class DailyDigestService {
 
         // 1. If Google Apps Script Webhook is configured, test via HTTPS port 443
         if (activeScriptUrl != null && !activeScriptUrl.isBlank()) {
-            String subject = "✅ Eventix Cloud Email Connection Verified";
+            String subject = "Eventix Cloud Email Connection Verified";
             String htmlContent = "<div style='font-family: Arial, sans-serif; padding: 24px; color: #1e293b; background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;'>"
                 + "<h2 style='color: #059669; margin-top: 0;'>✅ Eventix Cloud Email Connection Verified</h2>"
                 + "<p style='font-size: 15px; line-height: 1.6;'>Congratulations! This automated test confirms that Project Eventix is successfully connected to your Google Cloud Webhook and can deliver real emails directly from <strong>" + defaultSender + "</strong> to <strong>" + testTarget + "</strong> without any local server dependencies.</p>"
@@ -758,7 +758,7 @@ public class DailyDigestService {
 
     public Map<String, Object> sendQaReport(String recipient) {
         String targetRecipient = (recipient != null && !recipient.isBlank()) ? recipient : defaultRecipient;
-        String subject = "🧪 Eventix Cloud Automated QA Test Suite Report — 49/49 PASSED (100%%)";
+        String subject = "Eventix Cloud Automated QA Test Suite Report - 49/49 PASSED (100%%)";
 
         String htmlContent = """
             <!DOCTYPE html>
@@ -884,7 +884,7 @@ public class DailyDigestService {
                     </div>
 
                     <div style="text-align: center; margin: 24px 0;">
-                        <a href="https://frontend-client-production-9a03.up.railway.app/qa.html" class="btn">View Live Standalone QA Dashboard &rarr;</a>
+                        <a href="https://frontend-client-production-9a03.up.railway.app/qa" class="btn">View Live Standalone QA Dashboard &rarr;</a>
                     </div>
 
                     <div class="footer">

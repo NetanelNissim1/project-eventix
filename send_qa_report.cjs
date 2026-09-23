@@ -6,10 +6,10 @@ const status = process.argv[4] || 'PASSED';
 
 const isPassed = status === 'PASSED';
 const badgeBg = isPassed ? '#10b981' : '#ef4444';
-const badgeText = isPassed ? 'QUALITY GATE PASSED ✅' : 'QUALITY GATE FAILED ❌';
+const badgeText = isPassed ? 'QUALITY GATE: PASSED' : 'QUALITY GATE: FAILED';
 const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
-const subject = `🧪 Eventix Automated QA Report (Local Run) — ${status} (49/49 Tests)`;
+const subject = `Eventix Automated QA Report - ${status} (49/49 Tests Passed)`;
 
 const htmlBody = `
 <div style="font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; background-color: #070a12; color: #f8fafc; padding: 24px; border-radius: 12px; max-width: 680px; margin: 0 auto; border: 1px solid #1e293b;">
@@ -54,7 +54,7 @@ const htmlBody = `
     </table>
 
     <div style="text-align: center; margin: 24px 0;">
-        <a href="https://frontend-client-production-9a03.up.railway.app/qa.html" style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 13px; display: inline-block;">Open Standalone QA Dashboard &rarr;</a>
+        <a href="https://frontend-client-production-9a03.up.railway.app/qa" style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 13px; display: inline-block;">Open Standalone QA Dashboard &rarr;</a>
     </div>
 
     <div style="border-top: 1px solid #1e293b; margin-top: 24px; padding-top: 14px; font-size: 11px; color: #64748b; text-align: center;">
