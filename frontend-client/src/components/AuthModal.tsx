@@ -151,7 +151,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            Sign In (התחברות)
+            Sign In
           </button>
           <button
             onClick={() => { setMode('register'); setError(null); }}
@@ -161,7 +161,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            Register (הרשמה)
+            Register
           </button>
         </div>
 

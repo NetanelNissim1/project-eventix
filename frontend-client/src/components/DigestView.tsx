@@ -178,7 +178,7 @@ export const DigestView: React.FC = () => {
             ) : (
               <>
                 <Send className="w-4 h-4" />
-                <span>Send Digest Now (שליחה עכשיו)</span>
+                <span>Send Digest Now</span>
               </>
             )}
           </button>
@@ -235,7 +235,7 @@ export const DigestView: React.FC = () => {
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-sky-400" />
             <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-              Email Dispatch Scheduler & Configuration (תזמון שליחת המייל)
+              Email Dispatch Scheduler & Configuration
             </h2>
           </div>
           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
@@ -249,7 +249,7 @@ export const DigestView: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
             {/* Recipient Email */}
             <div className="lg:col-span-2">
-              <label className="text-slate-400 font-semibold block mb-1.5">RECIPIENT EMAIL ADDRESS (כתובת המייל לשליחה)</label>
+              <label className="text-slate-400 font-semibold block mb-1.5">RECIPIENT EMAIL ADDRESS</label>
               <input
                 type="email"
                 required
@@ -262,15 +262,15 @@ export const DigestView: React.FC = () => {
 
             {/* Schedule Type: Recurring vs One-Off */}
             <div>
-              <label className="text-slate-400 font-semibold block mb-1.5">DISPATCH MODE (אופן התזמון)</label>
+              <label className="text-slate-400 font-semibold block mb-1.5">DISPATCH MODE</label>
               <select
                 value={schedule.scheduleType}
                 onChange={(e) => setSchedule({ ...schedule, scheduleType: e.target.value as any })}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-sky-500"
               >
-                <option value="RECURRING">Recurring Schedule (תזמון חוזר)</option>
-                <option value="ONE_OFF">One-Off Date & Time (שעה יום ותאריך)</option>
-                <option value="DISABLED">Paused / Disabled (כבוי)</option>
+                <option value="RECURRING">Recurring Schedule</option>
+                <option value="ONE_OFF">One-Off Date & Time</option>
+                <option value="DISABLED">Paused / Disabled</option>
               </select>
             </div>
 
@@ -295,25 +295,25 @@ export const DigestView: React.FC = () => {
           {schedule.scheduleType === 'RECURRING' && (
             <div className="p-4 bg-slate-950/70 border border-slate-800 rounded-2xl grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs animate-fade-in">
               <div>
-                <label className="text-slate-400 font-semibold block mb-1.5">DAY SELECTION (יום בשבוע)</label>
+                <label className="text-slate-400 font-semibold block mb-1.5">DAY SELECTION</label>
                 <select
                   value={schedule.targetDayOfWeek}
                   onChange={(e) => setSchedule({ ...schedule, targetDayOfWeek: e.target.value })}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-sky-500"
                 >
-                  <option value="ALL">Every Day (כל יום)</option>
-                  <option value="SUN">Sunday (ראשון)</option>
-                  <option value="MON">Monday (שני)</option>
-                  <option value="TUE">Tuesday (שלישי)</option>
-                  <option value="WED">Wednesday (רביעי)</option>
-                  <option value="THU">Thursday (חמישי)</option>
-                  <option value="FRI">Friday (שישי)</option>
-                  <option value="SAT">Saturday (שבת)</option>
+                  <option value="ALL">Every Day</option>
+                  <option value="SUN">Sunday</option>
+                  <option value="MON">Monday</option>
+                  <option value="TUE">Tuesday</option>
+                  <option value="WED">Wednesday</option>
+                  <option value="THU">Thursday</option>
+                  <option value="FRI">Friday</option>
+                  <option value="SAT">Saturday</option>
                 </select>
               </div>
 
               <div>
-                <label className="text-slate-400 font-semibold block mb-1.5">TARGET HOUR (שעה 0-23)</label>
+                <label className="text-slate-400 font-semibold block mb-1.5">TARGET HOUR (00-23)</label>
                 <input
                   type="number"
                   min="0"
@@ -325,7 +325,7 @@ export const DigestView: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-slate-400 font-semibold block mb-1.5">TARGET MINUTE (דקה 0-59)</label>
+                <label className="text-slate-400 font-semibold block mb-1.5">TARGET MINUTE (00-59)</label>
                 <input
                   type="number"
                   min="0"
@@ -342,7 +342,7 @@ export const DigestView: React.FC = () => {
             <div className="p-4 bg-slate-950/70 border border-slate-800 rounded-2xl grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs animate-fade-in">
               <div className="sm:col-span-2">
                 <label className="text-slate-400 font-semibold block mb-1.5">
-                  ONE-OFF DISPATCH DATE & TIME (תאריך ושעה מדויקים לשליחה חד פעמית)
+                  ONE-OFF DISPATCH DATE & TIME
                 </label>
                 <input
                   type="datetime-local"
