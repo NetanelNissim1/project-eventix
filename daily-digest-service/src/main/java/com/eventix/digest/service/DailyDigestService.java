@@ -504,17 +504,20 @@ public class DailyDigestService {
         }
 
         try {
+            String cleanSubject = (subject != null ? subject.replaceAll("[\\u0590-\\u05FF]", "").trim() : "Eventix Notification");
+            String cleanHtml = (htmlContent != null ? htmlContent.replaceAll("[\\u0590-\\u05FF]", "").trim() : "");
+
             Map<String, String> payload = Map.of(
                 "to", targetRecipient,
-                "subject", subject,
-                "htmlBody", htmlContent
+                "subject", cleanSubject,
+                "htmlBody", cleanHtml
             );
             String jsonPayload = objectMapper.writeValueAsString(payload);
 
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .header("Content-Type", "application/json")
-                .timeout(Duration.ofSeconds(20))
+                .timeout(Duration.ofSeconds(30))
                 .POST(HttpRequest.BodyPublishers.ofString(jsonPayload, StandardCharsets.UTF_8))
                 .build();
 
@@ -571,8 +574,10 @@ public class DailyDigestService {
                 StringBuilder itemsStr = new StringBuilder();
                 if (p.items() != null && !p.items().isEmpty()) {
                     for (CustomerPurchaseSummary.ItemSummary it : p.items()) {
+                        String cleanName = it.productName() != null ? it.productName().replaceAll("[\\u0590-\\u05FF]", "").trim() : "Standard Item";
+                        if (cleanName.isBlank()) cleanName = "Standard Item";
                         itemsStr.append("<span style='display:block; font-size: 11px; color: #cbd5e1;'>• ")
-                            .append(it.productName()).append(" (x").append(it.quantity()).append(") - $")
+                            .append(cleanName).append(" (x").append(it.quantity()).append(") - $")
                             .append(it.unitPrice() != null ? it.unitPrice().toPlainString() : "0.00").append("</span>");
                     }
                 } else {
@@ -597,8 +602,10 @@ public class DailyDigestService {
         } else {
             searchesHtml.append("<div style='display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;'>");
             searches.forEach((k, v) -> {
+                String cleanKey = k != null ? k.replaceAll("[\\u0590-\\u05FF]", "").trim() : "Catalog Query";
+                if (cleanKey.isBlank()) cleanKey = "Catalog Query";
                 searchesHtml.append("<span style='background: #1e293b; border: 1px solid #475569; padding: 4px 10px; border-radius: 20px; font-size: 12px; color: #38bdf8;'>")
-                    .append("🔍 \"").append(k).append("\" (").append(v.get()).append(" searches)</span> ");
+                    .append("🔍 \"").append(cleanKey).append("\" (").append(v.get()).append(" searches)</span> ");
             });
             searchesHtml.append("</div>");
         }
@@ -610,10 +617,12 @@ public class DailyDigestService {
             int count = 0;
             for (CustomerActivitySummary act : activities) {
                 if (count++ >= 20) break; // Display top 20 latest activities
+                String cleanAct = act.action() != null ? act.action().replaceAll("[\\u0590-\\u05FF]", "").trim() : "ACTIVITY";
+                String cleanDetails = act.details() != null ? act.details().replaceAll("[\\u0590-\\u05FF]", "").trim() : "";
                 activitiesHtml.append("<tr style='border-bottom: 1px solid #334155;'>")
                     .append("<td style='padding: 8px 10px; font-size: 11px; color: #94a3b8; font-family: monospace;'>").append(act.timestamp() != null ? act.timestamp().toString().substring(11, 19) : "").append("</td>")
-                    .append("<td style='padding: 8px 10px; font-size: 11px; font-weight: bold; color: #38bdf8;'>").append(act.action()).append("</td>")
-                    .append("<td style='padding: 8px 10px; font-size: 11px; color: #cbd5e1;'>").append(act.details()).append(" <span style='color: #64748b;'>(").append(act.customerEmail()).append(")</span></td>")
+                    .append("<td style='padding: 8px 10px; font-size: 11px; font-weight: bold; color: #38bdf8;'>").append(cleanAct).append("</td>")
+                    .append("<td style='padding: 8px 10px; font-size: 11px; color: #cbd5e1;'>").append(cleanDetails).append(" <span style='color: #64748b;'>(").append(act.customerEmail()).append(")</span></td>")
                     .append("</tr>");
             }
         }
