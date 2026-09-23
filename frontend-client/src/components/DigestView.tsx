@@ -24,29 +24,27 @@ export const DigestView: React.FC = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [smtpMsg, setSmtpMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Digest microservice endpoint configuration
+  const RAILWAY_DIGEST_BACKEND = 'https://project-eventix-production-228d.up.railway.app';
+
+  // Digest microservice endpoint configuration - default to Railway cloud backend
   const [digestApiBase, setDigestApiBase] = useState<string>(() => {
     const saved = localStorage.getItem('eventix_digest_api_base');
-    if (saved) return saved;
-    if (typeof window !== 'undefined' && window.location.hostname.includes('railway.app')) {
-      return 'https://project-eventix-production-228d.up.railway.app';
-    }
-    return '';
+    if (saved && saved.trim().length > 0) return saved.trim();
+    return RAILWAY_DIGEST_BACKEND;
   });
 
   const getDigestUrl = (path: string) => {
-    const base = digestApiBase.trim().replace(/\/+$/, '');
-    return base ? `${base}${path}` : path;
+    const base = (digestApiBase && digestApiBase.trim().length > 0)
+      ? digestApiBase.trim().replace(/\/+$/, '')
+      : RAILWAY_DIGEST_BACKEND;
+    return `${base}${path}`;
   };
 
   const handleUpdateApiBase = (val: string) => {
     const clean = val.trim().replace(/\/+$/, '');
-    setDigestApiBase(clean);
-    if (clean) {
-      localStorage.setItem('eventix_digest_api_base', clean);
-    } else {
-      localStorage.removeItem('eventix_digest_api_base');
-    }
+    const effective = clean || RAILWAY_DIGEST_BACKEND;
+    setDigestApiBase(effective);
+    localStorage.setItem('eventix_digest_api_base', effective);
   };
 
   // Schedule state
@@ -276,6 +274,11 @@ export const DigestView: React.FC = () => {
   };
 
   useEffect(() => {
+    const saved = localStorage.getItem('eventix_digest_api_base');
+    if (!saved || saved.trim() === '' || !saved.startsWith('http')) {
+      localStorage.setItem('eventix_digest_api_base', RAILWAY_DIGEST_BACKEND);
+      setDigestApiBase(RAILWAY_DIGEST_BACKEND);
+    }
     fetchHistory();
     fetchSchedule();
     fetchSmtp();
@@ -668,10 +671,10 @@ export const DigestView: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleUpdateApiBase('')}
-                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors font-semibold"
+                  onClick={() => handleUpdateApiBase(RAILWAY_DIGEST_BACKEND)}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-colors font-semibold"
                 >
-                  Default (Relative)
+                  Reset Default
                 </button>
               </div>
             </div>
