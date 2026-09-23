@@ -335,21 +335,29 @@ public class DailyDigestService {
             }
         }
 
-        DailyDigestRecord record = new DailyDigestRecord(
-            UUID.randomUUID().toString(),
-            today,
-            orders,
-            confirmed,
-            failed,
-            revenue,
-            errors,
-            warnings,
-            effectiveRecipient,
-            status,
-            Instant.now()
-        );
+        DailyDigestRecord record = digestRepository.findByReportDate(today)
+            .orElseGet(DailyDigestRecord::new);
 
-        return digestRepository.save(record);
+        if (record.getId() == null) {
+            record.setId(UUID.randomUUID().toString());
+        }
+        record.setReportDate(today);
+        record.setTotalOrders(orders);
+        record.setConfirmedOrders(confirmed);
+        record.setFailedOrders(failed);
+        record.setTotalRevenue(revenue);
+        record.setTotalErrors(errors);
+        record.setTotalWarnings(warnings);
+        record.setEmailRecipient(effectiveRecipient);
+        record.setStatus(status);
+        record.setGeneratedAt(Instant.now());
+
+        try {
+            return digestRepository.save(record);
+        } catch (Exception e) {
+            log.error("Failed to persist digest record to database: {}", e.getMessage(), e);
+            return record;
+        }
     }
 
     public SmtpConfigDto getSmtpConfig() {

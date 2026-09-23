@@ -18,10 +18,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @RestController
 @RequestMapping("/api/v1/digest")
 @CrossOrigin(origins = "*")
 public class DailyDigestController {
+
+    private static final Logger log = LoggerFactory.getLogger(DailyDigestController.class);
 
     private final DailyDigestService digestService;
 
@@ -30,10 +35,18 @@ public class DailyDigestController {
     }
 
     @PostMapping("/trigger-now")
-    public ResponseEntity<DailyDigestRecord> triggerDigest(
+    public ResponseEntity<?> triggerDigest(
         @RequestParam(required = false, defaultValue = "bill.nissim@gmail.com") String recipient
     ) {
-        return ResponseEntity.ok(digestService.generateAndSendDigest(recipient));
+        try {
+            return ResponseEntity.ok(digestService.generateAndSendDigest(recipient));
+        } catch (Throwable t) {
+            log.error("Error generating/dispatching digest to {}: {}", recipient, t.getMessage(), t);
+            return ResponseEntity.status(500).body(Map.of(
+                "error", t.getClass().getSimpleName() + ": " + t.getMessage(),
+                "message", "Failed to dispatch digest: " + t.getMessage()
+            ));
+        }
     }
 
     @GetMapping("/smtp")
