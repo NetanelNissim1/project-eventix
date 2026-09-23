@@ -1,8 +1,21 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
 import { ProtectedRoute } from './components/ProtectedRoute';
+
+// Standalone Dedicated QA Dashboard View
+const QaStandaloneView: React.FC = () => {
+  return (
+    <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden', backgroundColor: '#070a12' }}>
+      <iframe
+        src="/qa.html"
+        title="Eventix QA Dashboard"
+        style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+      />
+    </div>
+  );
+};
 
 // Pages
 import { HomePage } from './pages/HomePage';
@@ -26,97 +39,114 @@ import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminRegisterPage } from './pages/AdminRegisterPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
+const AppContent: React.FC = () => {
+  const location = useLocation();
+  const isQa = location.pathname === '/qa' || location.pathname === '/qa/' || location.pathname.startsWith('/qa');
+
+  if (isQa) {
+    return <QaStandaloneView />;
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-sky-500 selection:text-white">
+      <Header />
+
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Routes>
+          {/* Discovery & Shopping */}
+          <Route path="/" element={<HomePage />} />
+          <Route path="/products" element={<CatalogPage />} />
+          <Route path="/products/:id" element={<ProductDetailPage />} />
+          <Route path="/wishlist" element={<WishlistPage />} />
+
+          {/* Cart & Checkout */}
+          <Route path="/cart" element={<CartPage />} />
+          <Route
+            path="/checkout"
+            element={
+              <ProtectedRoute>
+                <CheckoutPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/orders/:id/status" element={<OrderStatusPage />} />
+          <Route path="/orders/:id/confirmation" element={<OrderConfirmationPage />} />
+
+          {/* Auth & Security */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/admin/provision" element={<AdminRegisterPage />} />
+          <Route path="/admin/register" element={<AdminRegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ForgotPasswordPage />} />
+
+          {/* Protected Account Area */}
+          <Route
+            path="/account/orders"
+            element={
+              <ProtectedRoute>
+                <OrderHistoryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/account/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Public Support & FAQs */}
+          <Route path="/support" element={<SupportFaqPage />} />
+          <Route path="/faq" element={<SupportFaqPage />} />
+
+          {/* Administrator Only Area */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requiredRole="ROLE_ADMIN">
+                <AdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/system-health"
+            element={
+              <ProtectedRoute requiredRole="ROLE_ADMIN">
+                <SystemHealthPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/audit"
+            element={
+              <ProtectedRoute requiredRole="ROLE_ADMIN">
+                <AuditPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/digest" element={<DigestPage />} />
+
+          {/* Standalone QA Dashboard Direct Route */}
+          <Route path="/qa" element={<QaStandaloneView />} />
+          <Route path="/qa/*" element={<QaStandaloneView />} />
+
+          {/* 404 Fallback */}
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </main>
+
+      <Footer />
+    </div>
+  );
+};
+
 export const App: React.FC = () => {
   return (
     <BrowserRouter>
-      <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-sky-500 selection:text-white">
-        <Header />
-
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Routes>
-            {/* Discovery & Shopping */}
-            <Route path="/" element={<HomePage />} />
-            <Route path="/products" element={<CatalogPage />} />
-            <Route path="/products/:id" element={<ProductDetailPage />} />
-            <Route path="/wishlist" element={<WishlistPage />} />
-
-            {/* Cart & Checkout */}
-            <Route path="/cart" element={<CartPage />} />
-            <Route
-              path="/checkout"
-              element={
-                <ProtectedRoute>
-                  <CheckoutPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/orders/:id/status" element={<OrderStatusPage />} />
-            <Route path="/orders/:id/confirmation" element={<OrderConfirmationPage />} />
-
-            {/* Auth & Security */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/admin/provision" element={<AdminRegisterPage />} />
-            <Route path="/admin/register" element={<AdminRegisterPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ForgotPasswordPage />} />
-
-            {/* Protected Account Area */}
-            <Route
-              path="/account/orders"
-              element={
-                <ProtectedRoute>
-                  <OrderHistoryPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/account/profile"
-              element={
-                <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Public Support & FAQs */}
-            <Route path="/support" element={<SupportFaqPage />} />
-            <Route path="/faq" element={<SupportFaqPage />} />
-
-            {/* Administrator Only Area */}
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute requiredRole="ROLE_ADMIN">
-                  <AdminDashboardPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/system-health"
-              element={
-                <ProtectedRoute requiredRole="ROLE_ADMIN">
-                  <SystemHealthPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/audit"
-              element={
-                <ProtectedRoute requiredRole="ROLE_ADMIN">
-                  <AuditPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/digest" element={<DigestPage />} />
-
-            {/* 404 Fallback */}
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </main>
-
-        <Footer />
-      </div>
+      <AppContent />
     </BrowserRouter>
   );
 };
