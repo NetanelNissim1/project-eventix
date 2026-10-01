@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { DailyDigest, DigestScheduleConfig } from '../types';
-import { Mail, Send, CheckCircle2, Clock, Calendar, RefreshCw, Eye, Search, ShoppingCart } from 'lucide-react';
+import { Mail, Send, CheckCircle2, Clock, Calendar, RefreshCw, Eye, Search, ShoppingCart, Users, Globe } from 'lucide-react';
 import { apiClient } from '../api/client';
 
 export const DigestView: React.FC = () => {
@@ -18,27 +18,34 @@ export const DigestView: React.FC = () => {
     return `${base}${path}`;
   };
 
-  // Schedule state
+  // Schedule state - Default monthly on day 1 at 23:00
   const [schedule, setSchedule] = useState<DigestScheduleConfig>({
     scheduleType: 'RECURRING',
-    recurringFrequency: 'DAILY',
+    recurringFrequency: 'MONTHLY',
     targetHour: 23,
     targetMinute: 0,
     targetDayOfWeek: 'ALL',
+    targetDayOfMonth: 1,
     oneOffDateTime: '',
     recipient: 'bill.nissim@gmail.com',
     active: true,
   });
 
-  // Today live summary
+  // Today live summary including traffic metrics
   const [todaySummary, setTodaySummary] = useState<{
     purchases: any[];
     searches: Record<string, number>;
     activities: any[];
+    totalVisits?: number;
+    uniqueVisitors?: number;
+    pageViews?: Record<string, number>;
   }>({
     purchases: [],
     searches: {},
     activities: [],
+    totalVisits: 0,
+    uniqueVisitors: 0,
+    pageViews: {},
   });
 
   const fetchHistory = async () => {
@@ -77,6 +84,9 @@ export const DigestView: React.FC = () => {
           purchases: Array.isArray(res.data.purchases) ? res.data.purchases : [],
           searches: res.data.searches && typeof res.data.searches === 'object' ? res.data.searches : {},
           activities: Array.isArray(res.data.activities) ? res.data.activities : [],
+          totalVisits: typeof res.data.totalVisits === 'number' ? res.data.totalVisits : 0,
+          uniqueVisitors: typeof res.data.uniqueVisitors === 'number' ? res.data.uniqueVisitors : 0,
+          pageViews: res.data.pageViews && typeof res.data.pageViews === 'object' ? res.data.pageViews : {},
         });
       }
     } catch (err) {
@@ -293,24 +303,58 @@ export const DigestView: React.FC = () => {
 
           {/* Conditional Fields based on Schedule Type */}
           {schedule.scheduleType === 'RECURRING' && (
-            <div className="p-4 bg-slate-950/70 border border-slate-800 rounded-2xl grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs animate-fade-in">
+            <div className="p-4 bg-slate-950/70 border border-slate-800 rounded-2xl grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs animate-fade-in">
               <div>
-                <label className="text-slate-400 font-semibold block mb-1.5">DAY SELECTION</label>
+                <label className="text-slate-400 font-semibold block mb-1.5">FREQUENCY</label>
                 <select
-                  value={schedule.targetDayOfWeek}
-                  onChange={(e) => setSchedule({ ...schedule, targetDayOfWeek: e.target.value })}
+                  value={schedule.recurringFrequency || 'MONTHLY'}
+                  onChange={(e) => setSchedule({ ...schedule, recurringFrequency: e.target.value as any })}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-sky-500"
                 >
-                  <option value="ALL">Every Day</option>
-                  <option value="SUN">Sunday</option>
-                  <option value="MON">Monday</option>
-                  <option value="TUE">Tuesday</option>
-                  <option value="WED">Wednesday</option>
-                  <option value="THU">Thursday</option>
-                  <option value="FRI">Friday</option>
-                  <option value="SAT">Saturday</option>
+                  <option value="MONTHLY">Monthly (Once a Month)</option>
+                  <option value="DAILY">Daily (Every Day)</option>
+                  <option value="WEEKLY">Weekly</option>
                 </select>
               </div>
+
+              {schedule.recurringFrequency === 'MONTHLY' ? (
+                <div>
+                  <label className="text-slate-400 font-semibold block mb-1.5">DAY OF MONTH (1-31)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={schedule.targetDayOfMonth || 1}
+                    onChange={(e) => setSchedule({ ...schedule, targetDayOfMonth: parseInt(e.target.value) || 1 })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-white font-mono focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+              ) : schedule.recurringFrequency === 'WEEKLY' ? (
+                <div>
+                  <label className="text-slate-400 font-semibold block mb-1.5">DAY OF WEEK</label>
+                  <select
+                    value={schedule.targetDayOfWeek}
+                    onChange={(e) => setSchedule({ ...schedule, targetDayOfWeek: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-sky-500"
+                  >
+                    <option value="ALL">Every Day</option>
+                    <option value="SUN">Sunday</option>
+                    <option value="MON">Monday</option>
+                    <option value="TUE">Tuesday</option>
+                    <option value="WED">Wednesday</option>
+                    <option value="THU">Thursday</option>
+                    <option value="FRI">Friday</option>
+                    <option value="SAT">Saturday</option>
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <label className="text-slate-400 font-semibold block mb-1.5">RECURRENCE</label>
+                  <div className="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-3.5 py-2 text-slate-400 font-medium">
+                    Every Day
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="text-slate-400 font-semibold block mb-1.5">TARGET HOUR (00-23)</label>
@@ -380,13 +424,60 @@ export const DigestView: React.FC = () => {
               Today's Live In-Flight Surveillance Preview
             </h2>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Real-time feed of customer purchases, catalog search keywords, and user activity recorded for the next digest
+              Real-time feed of website traffic, customer purchases, catalog search keywords, and user activity recorded for the next digest
             </p>
           </div>
           <span className="text-[11px] text-slate-500 font-mono">
-            {(todaySummary?.purchases || []).length} orders &bull; {Object.keys(todaySummary?.searches || {}).length} queries &bull; {(todaySummary?.activities || []).length} events
+            {todaySummary?.totalVisits || 0} visits &bull; {(todaySummary?.purchases || []).length} orders &bull; {Object.keys(todaySummary?.searches || {}).length} queries
           </span>
         </div>
+
+        {/* Real-time Traffic & Visitor Metrics */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="p-3.5 bg-slate-950/70 border border-slate-800/80 rounded-2xl">
+            <div className="text-[10px] text-slate-400 uppercase font-semibold flex items-center gap-1.5">
+              <Globe className="w-3.5 h-3.5 text-sky-400" />
+              Total Site Visits
+            </div>
+            <div className="text-xl font-bold text-sky-400 mt-1">{todaySummary.totalVisits || 0}</div>
+          </div>
+          <div className="p-3.5 bg-slate-950/70 border border-slate-800/80 rounded-2xl">
+            <div className="text-[10px] text-slate-400 uppercase font-semibold flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-indigo-400" />
+              Unique Visitors
+            </div>
+            <div className="text-xl font-bold text-indigo-400 mt-1">{todaySummary.uniqueVisitors || 0}</div>
+          </div>
+          <div className="p-3.5 bg-slate-950/70 border border-slate-800/80 rounded-2xl">
+            <div className="text-[10px] text-slate-400 uppercase font-semibold flex items-center gap-1.5">
+              <ShoppingCart className="w-3.5 h-3.5 text-emerald-400" />
+              Today's Purchases
+            </div>
+            <div className="text-xl font-bold text-emerald-400 mt-1">{(todaySummary?.purchases || []).length}</div>
+          </div>
+          <div className="p-3.5 bg-slate-950/70 border border-slate-800/80 rounded-2xl">
+            <div className="text-[10px] text-slate-400 uppercase font-semibold flex items-center gap-1.5">
+              <Search className="w-3.5 h-3.5 text-amber-400" />
+              Catalog Queries
+            </div>
+            <div className="text-xl font-bold text-amber-400 mt-1">{Object.keys(todaySummary?.searches || {}).length}</div>
+          </div>
+        </div>
+
+        {/* Page Views Breakdown if any */}
+        {todaySummary.pageViews && Object.keys(todaySummary.pageViews).length > 0 && (
+          <div className="p-3.5 bg-slate-950/70 border border-slate-800/80 rounded-2xl text-xs">
+            <div className="text-[10px] text-slate-400 uppercase font-semibold mb-2">Most Visited Pages</div>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(todaySummary.pageViews).map(([page, count]) => (
+                <span key={page} className="px-2.5 py-1 bg-slate-900 border border-slate-800 rounded-full text-[11px] text-sky-300 flex items-center gap-1.5">
+                  <span className="font-mono">{page}</span>
+                  <span className="px-1.5 py-0.2 bg-sky-500/20 text-sky-400 rounded-full text-[9px] font-bold">{count}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
           {/* Recent Purchases */}
@@ -459,6 +550,7 @@ export const DigestView: React.FC = () => {
               <tr>
                 <th className="p-4">Report Date</th>
                 <th className="p-4">Recipient</th>
+                <th className="p-4">Site Visits</th>
                 <th className="p-4">Orders</th>
                 <th className="p-4">Revenue</th>
                 <th className="p-4">Delivery Status</th>
@@ -468,7 +560,7 @@ export const DigestView: React.FC = () => {
             <tbody className="divide-y divide-slate-800/60 font-mono">
               {(!Array.isArray(history) || history.length === 0) ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-500 font-sans">
+                  <td colSpan={7} className="p-8 text-center text-slate-500 font-sans">
                     {loading ? 'Loading history...' : 'No daily digests dispatched yet. Click "Send Digest Now" above to test.'}
                   </td>
                 </tr>
@@ -477,7 +569,10 @@ export const DigestView: React.FC = () => {
                   <tr key={d.id || Math.random()} className="hover:bg-slate-800/30 transition-colors">
                     <td className="p-4 font-bold text-white">{d.reportDate || '-'}</td>
                     <td className="p-4 text-slate-300">{d.emailRecipient || 'bill.nissim@gmail.com'}</td>
-                    <td className="p-4 text-sky-400">{d.totalOrders || 0} total ({d.confirmedOrders || 0} confirmed)</td>
+                    <td className="p-4 text-sky-400 font-bold">
+                      {d.totalVisits ?? 0} <span className="text-[10px] text-slate-400 font-normal">({d.uniqueVisitors ?? 0} unique)</span>
+                    </td>
+                    <td className="p-4 text-slate-300">{d.totalOrders || 0} total ({d.confirmedOrders || 0} confirmed)</td>
                     <td className="p-4 text-emerald-400 font-bold">${Number(d.totalRevenue || 0).toFixed(2)}</td>
                     <td className="p-4">
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${

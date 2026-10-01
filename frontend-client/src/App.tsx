@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { TrafficTracker } from './components/TrafficTracker';
 
 import { QaDashboardPage } from './pages/QaDashboardPage';
 
@@ -33,11 +34,17 @@ const AppContent: React.FC = () => {
   const isQa = location.pathname === '/qa' || location.pathname === '/qa/' || location.pathname.startsWith('/qa');
 
   if (isQa) {
-    return <QaDashboardPage />;
+    return (
+      <>
+        <TrafficTracker />
+        <QaDashboardPage />
+      </>
+    );
   }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-sky-500 selection:text-white">
+      <TrafficTracker />
       <Header />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">

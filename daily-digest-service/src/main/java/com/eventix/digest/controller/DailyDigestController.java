@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.eventix.digest.dto.RecordVisitRequest;
+
 @RestController
 @RequestMapping("/api/v1/digest")
 @CrossOrigin(origins = "*")
@@ -105,10 +107,27 @@ public class DailyDigestController {
     ) {
         if ("SEARCH".equalsIgnoreCase(request.action()) || "CUSTOMER_SEARCH".equalsIgnoreCase(request.action())) {
             digestService.recordCustomerSearch(request.details());
+        } else if ("SITE_VISIT".equalsIgnoreCase(request.action())) {
+            digestService.recordSiteVisit(null, request.details(), request.customerEmail());
         } else {
             digestService.recordCustomerActivity(request.customerEmail(), request.action(), request.details());
         }
         return ResponseEntity.ok(Map.of("status", "recorded"));
+    }
+
+    @PostMapping("/record-visit")
+    public ResponseEntity<Map<String, Object>> recordVisit(
+        @RequestBody(required = false) RecordVisitRequest request
+    ) {
+        String sessionId = request != null ? request.sessionId() : null;
+        String page = request != null ? request.page() : "/";
+        String email = request != null ? request.customerEmail() : null;
+        digestService.recordSiteVisit(sessionId, page, email);
+        return ResponseEntity.ok(Map.of(
+            "status", "recorded",
+            "totalVisits", digestService.getTotalVisits(),
+            "uniqueVisitors", digestService.getUniqueVisitorsCount()
+        ));
     }
 
     @GetMapping("/history")
@@ -121,10 +140,16 @@ public class DailyDigestController {
         List<CustomerPurchaseSummary> purchases = digestService.getDailyPurchases();
         Map<String, Integer> searches = digestService.getCustomerSearches();
         List<CustomerActivitySummary> activities = digestService.getDailyActivities();
+        int totalVisits = digestService.getTotalVisits();
+        int uniqueVisitors = digestService.getUniqueVisitorsCount();
+        Map<String, Integer> pageViews = digestService.getPageViews();
         return ResponseEntity.ok(Map.of(
             "purchases", purchases,
             "searches", searches,
-            "activities", activities
+            "activities", activities,
+            "totalVisits", totalVisits,
+            "uniqueVisitors", uniqueVisitors,
+            "pageViews", pageViews
         ));
     }
 }

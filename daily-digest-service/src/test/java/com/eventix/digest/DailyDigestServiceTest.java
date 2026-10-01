@@ -55,6 +55,27 @@ class DailyDigestServiceTest {
     }
 
     @Test
+    @DisplayName("Traffic Accumulators: Should record site visits, count unique visitors, and track page views")
+    void testRecordSiteVisit() {
+        // Act
+        digestService.recordSiteVisit("sess-1", "/qa", "visitor1@eventix.io");
+        digestService.recordSiteVisit("sess-1", "/catalog", "visitor1@eventix.io");
+        digestService.recordSiteVisit("sess-2", "/catalog", "visitor2@eventix.io");
+
+        // Assert
+        assertThat(digestService.getTotalVisits()).isEqualTo(3);
+        assertThat(digestService.getUniqueVisitorsCount()).isEqualTo(2);
+        Map<String, Integer> views = digestService.getPageViews();
+        assertThat(views).containsEntry("/qa", 1);
+        assertThat(views).containsEntry("/catalog", 2);
+
+        // Also logged in activities
+        var activities = digestService.getDailyActivities();
+        assertThat(activities).isNotEmpty();
+        assertThat(activities.get(0).action()).isEqualTo("SITE_VISIT");
+    }
+
+    @Test
     @DisplayName("Accumulators: Should record customer activities up to max queue capacity")
     void testRecordCustomerActivity() {
         // Act
@@ -100,6 +121,7 @@ class DailyDigestServiceTest {
         config.setActive(true);
         config.setRecipient("bill.nissim@gmail.com");
         config.setScheduleType("RECURRING");
+        config.setRecurringFrequency("WEEKLY");
         config.setTargetDayOfWeek("MON");
         config.setTargetHour(9);
         config.setTargetMinute(30);
@@ -110,6 +132,21 @@ class DailyDigestServiceTest {
         // Assert
         assertThat(updated.isActive()).isTrue();
         assertThat(updated.getRecipient()).isEqualTo("bill.nissim@gmail.com");
-        assertThat(updated.getNextRunDescription()).contains("MON at 09:30");
+        assertThat(updated.getNextRunDescription()).contains("Weekly on MON at 09:30");
+    }
+
+    @Test
+    @DisplayName("Scheduler: Default configuration should be MONTHLY on day 1 at 23:00")
+    void testDefaultMonthlyScheduleConfig() {
+        // Act
+        DigestScheduleConfig config = digestService.getScheduleConfig();
+
+        // Assert
+        assertThat(config.isActive()).isTrue();
+        assertThat(config.getRecurringFrequency()).isEqualTo("MONTHLY");
+        assertThat(config.getTargetDayOfMonth()).isEqualTo(1);
+        assertThat(config.getTargetHour()).isEqualTo(23);
+        assertThat(config.getTargetMinute()).isEqualTo(0);
+        assertThat(config.getNextRunDescription()).contains("Monthly on day 1 at 23:00");
     }
 }

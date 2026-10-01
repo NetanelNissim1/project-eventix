@@ -5,9 +5,10 @@ import java.time.Instant;
 public class DigestScheduleConfig {
 
     private String scheduleType = "RECURRING"; // "RECURRING", "ONE_OFF", "DISABLED"
-    private String recurringFrequency = "DAILY"; // "DAILY", "WEEKLY"
+    private String recurringFrequency = "MONTHLY"; // "MONTHLY", "DAILY", "WEEKLY"
     private int targetHour = 23;
     private int targetMinute = 0;
+    private int targetDayOfMonth = 1; // 1-31 (default 1st of each month)
     private String targetDayOfWeek = "ALL"; // "ALL", "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"
     private String oneOffDateTime; // e.g. "2026-09-22T20:30"
     private String recipient = "bill.nissim@gmail.com";
@@ -18,11 +19,12 @@ public class DigestScheduleConfig {
     public DigestScheduleConfig() {}
 
     public DigestScheduleConfig(String scheduleType, String recurringFrequency, int targetHour, int targetMinute,
-                                String targetDayOfWeek, String oneOffDateTime, String recipient, boolean active) {
+                                int targetDayOfMonth, String targetDayOfWeek, String oneOffDateTime, String recipient, boolean active) {
         this.scheduleType = scheduleType;
         this.recurringFrequency = recurringFrequency;
         this.targetHour = targetHour;
         this.targetMinute = targetMinute;
+        this.targetDayOfMonth = targetDayOfMonth;
         this.targetDayOfWeek = targetDayOfWeek;
         this.oneOffDateTime = oneOffDateTime;
         this.recipient = recipient;
@@ -40,6 +42,9 @@ public class DigestScheduleConfig {
 
     public int getTargetMinute() { return targetMinute; }
     public void setTargetMinute(int targetMinute) { this.targetMinute = targetMinute; }
+
+    public int getTargetDayOfMonth() { return targetDayOfMonth; }
+    public void setTargetDayOfMonth(int targetDayOfMonth) { this.targetDayOfMonth = targetDayOfMonth; }
 
     public String getTargetDayOfWeek() { return targetDayOfWeek; }
     public void setTargetDayOfWeek(String targetDayOfWeek) { this.targetDayOfWeek = targetDayOfWeek; }

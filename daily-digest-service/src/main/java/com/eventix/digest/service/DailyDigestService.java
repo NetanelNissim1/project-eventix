@@ -69,6 +69,11 @@ public class DailyDigestService {
     private final AtomicInteger errorsCount = new AtomicInteger(0);
     private final AtomicInteger warningsCount = new AtomicInteger(0);
 
+    // Website Visits / Traffic Accumulators
+    private final AtomicInteger totalVisitsCount = new AtomicInteger(0);
+    private final ConcurrentHashMap.KeySetView<String, Boolean> uniqueVisitors = ConcurrentHashMap.newKeySet();
+    private final ConcurrentHashMap<String, AtomicInteger> pageViews = new ConcurrentHashMap<>();
+
     // Customer Purchases Accumulator (cap at 200)
     private final ConcurrentLinkedDeque<CustomerPurchaseSummary> dailyPurchases = new ConcurrentLinkedDeque<>();
 
@@ -94,9 +99,10 @@ public class DailyDigestService {
         DigestScheduleConfig initialConfig = new DigestScheduleConfig();
         initialConfig.setRecipient("bill.nissim@gmail.com");
         initialConfig.setScheduleType("RECURRING");
-        initialConfig.setRecurringFrequency("DAILY");
+        initialConfig.setRecurringFrequency("MONTHLY");
         initialConfig.setTargetHour(23);
         initialConfig.setTargetMinute(0);
+        initialConfig.setTargetDayOfMonth(1);
         initialConfig.setTargetDayOfWeek("ALL");
         initialConfig.setActive(true);
         this.scheduleConfig.set(initialConfig);
@@ -176,6 +182,32 @@ public class DailyDigestService {
         }
     }
 
+    public void recordSiteVisit(String sessionId, String page, String customerEmail) {
+        totalVisitsCount.incrementAndGet();
+        if (sessionId != null && !sessionId.isBlank()) {
+            uniqueVisitors.add(sessionId.trim());
+        }
+        String cleanPage = (page != null && !page.isBlank()) ? page.trim() : "/";
+        pageViews.computeIfAbsent(cleanPage, k -> new AtomicInteger(0)).incrementAndGet();
+
+        String visitorEmail = (customerEmail != null && !customerEmail.isBlank()) ? customerEmail : "visitor@eventix.io";
+        recordCustomerActivity(visitorEmail, "SITE_VISIT", "Visited store page: " + cleanPage);
+    }
+
+    public int getTotalVisits() {
+        return totalVisitsCount.get();
+    }
+
+    public int getUniqueVisitorsCount() {
+        return uniqueVisitors.size();
+    }
+
+    public Map<String, Integer> getPageViews() {
+        Map<String, Integer> res = new ConcurrentHashMap<>();
+        pageViews.forEach((k, v) -> res.put(k, v.get()));
+        return res;
+    }
+
     public DigestScheduleConfig getScheduleConfig() {
         DigestScheduleConfig config = scheduleConfig.get();
         config.setLastRun(lastExecutionTime.get());
@@ -188,9 +220,9 @@ public class DailyDigestService {
             newConfig.setRecipient("bill.nissim@gmail.com");
         }
         scheduleConfig.set(newConfig);
-        log.info("Updated Daily Digest schedule: type={}, freq={}, hour={}, min={}, date={}, recipient={}",
-            newConfig.getScheduleType(), newConfig.getRecurringFrequency(), newConfig.getTargetHour(),
-            newConfig.getTargetMinute(), newConfig.getOneOffDateTime(), newConfig.getRecipient());
+        log.info("Updated Digest schedule: type={}, freq={}, dayOfMonth={}, hour={}, min={}, date={}, recipient={}",
+            newConfig.getScheduleType(), newConfig.getRecurringFrequency(), newConfig.getTargetDayOfMonth(),
+            newConfig.getTargetHour(), newConfig.getTargetMinute(), newConfig.getOneOffDateTime(), newConfig.getRecipient());
         return getScheduleConfig();
     }
 
@@ -200,6 +232,10 @@ public class DailyDigestService {
         }
         if ("ONE_OFF".equalsIgnoreCase(config.getScheduleType())) {
             return config.getOneOffDateTime() != null ? "One-off dispatch at: " + config.getOneOffDateTime() : "Unscheduled";
+        }
+        if ("MONTHLY".equalsIgnoreCase(config.getRecurringFrequency())) {
+            int targetDay = config.getTargetDayOfMonth() > 0 ? config.getTargetDayOfMonth() : 1;
+            return String.format("Monthly on day %d at %02d:%02d (%s)", targetDay, config.getTargetHour(), config.getTargetMinute(), config.getRecipient());
         }
         String dayStr = "ALL".equalsIgnoreCase(config.getTargetDayOfWeek()) ? "Every day" : "Weekly on " + config.getTargetDayOfWeek();
         return String.format("%s at %02d:%02d (%s)", dayStr, config.getTargetHour(), config.getTargetMinute(), config.getRecipient());
@@ -222,9 +258,22 @@ public class DailyDigestService {
         }
 
         if ("RECURRING".equalsIgnoreCase(config.getScheduleType())) {
-            if (now.getHour() == config.getTargetHour() && now.getMinute() == config.getTargetMinute()) {
-                if (matchesDayOfWeek(config.getTargetDayOfWeek(), now.getDayOfWeek())) {
-                    log.info("Dynamic recurring schedule triggered at {}:{}", now.getHour(), now.getMinute());
+            if ("MONTHLY".equalsIgnoreCase(config.getRecurringFrequency())) {
+                int targetDay = config.getTargetDayOfMonth() > 0 ? config.getTargetDayOfMonth() : 1;
+                if (now.getDayOfMonth() == targetDay && now.getHour() == config.getTargetHour() && now.getMinute() == config.getTargetMinute()) {
+                    log.info("Dynamic recurring monthly schedule triggered on day {} at {}:{}", now.getDayOfMonth(), now.getHour(), now.getMinute());
+                    generateAndSendDigest(config.getRecipient());
+                }
+            } else if ("WEEKLY".equalsIgnoreCase(config.getRecurringFrequency())) {
+                if (now.getHour() == config.getTargetHour() && now.getMinute() == config.getTargetMinute()) {
+                    if (matchesDayOfWeek(config.getTargetDayOfWeek(), now.getDayOfWeek())) {
+                        log.info("Dynamic recurring weekly schedule triggered on {} at {}:{}", now.getDayOfWeek(), now.getHour(), now.getMinute());
+                        generateAndSendDigest(config.getRecipient());
+                    }
+                }
+            } else { // DAILY
+                if (now.getHour() == config.getTargetHour() && now.getMinute() == config.getTargetMinute()) {
+                    log.info("Dynamic recurring daily schedule triggered at {}:{}", now.getHour(), now.getMinute());
                     generateAndSendDigest(config.getRecipient());
                 }
             }
@@ -266,12 +315,18 @@ public class DailyDigestService {
         BigDecimal revenue = totalRevenue.get();
         int errors = errorsCount.get();
         int warnings = warningsCount.get();
+        int totalVisits = totalVisitsCount.get();
+        int uniqueVis = uniqueVisitors.size();
 
         List<CustomerPurchaseSummary> purchases = new ArrayList<>(dailyPurchases);
         Map<String, AtomicInteger> searches = new ConcurrentHashMap<>(customerSearches);
         List<CustomerActivitySummary> activities = new ArrayList<>(dailyActivities);
+        Map<String, AtomicInteger> views = new ConcurrentHashMap<>(pageViews);
 
-        String htmlContent = buildHtmlReport(today, orders, confirmed, failed, revenue, errors, warnings, purchases, searches, activities);
+        String freq = scheduleConfig.get() != null ? scheduleConfig.get().getRecurringFrequency() : "MONTHLY";
+        String reportPeriod = "MONTHLY".equalsIgnoreCase(freq) ? "Monthly" : ("WEEKLY".equalsIgnoreCase(freq) ? "Weekly" : "Daily");
+
+        String htmlContent = buildHtmlReport(today, reportPeriod, totalVisits, uniqueVis, views, orders, confirmed, failed, revenue, errors, warnings, purchases, searches, activities);
         String status = "SENT";
         boolean dispatched = false;
 
@@ -280,13 +335,14 @@ public class DailyDigestService {
             ? googleScriptUrl.get()
             : defaultGoogleScriptUrl;
 
+        String subject = "Eventix " + reportPeriod + " Digest Report - " + today + " | Traffic, Activity & Purchases";
+
         if (activeScriptUrl != null && !activeScriptUrl.isBlank()) {
-            String subject = "Eventix Daily Digest Report - " + today + " | Customer Activity & Purchases";
             Map<String, Object> webhookRes = dispatchViaGoogleScript(effectiveRecipient, subject, htmlContent);
             if (Boolean.TRUE.equals(webhookRes.get("success"))) {
                 dispatched = true;
                 status = "SENT (via Google Cloud Webhook)";
-                log.info("Successfully sent Daily Digest email via Google Cloud Webhook from {} to {}", defaultSender, effectiveRecipient);
+                log.info("Successfully sent {} Digest email via Google Cloud Webhook from {} to {}", reportPeriod, defaultSender, effectiveRecipient);
             } else {
                 log.warn("Google Cloud Webhook failed, attempting SMTP fallback: {}", webhookRes.get("message"));
             }
@@ -310,6 +366,8 @@ public class DailyDigestService {
                         revenue,
                         errors,
                         warnings,
+                        totalVisits,
+                        uniqueVis,
                         effectiveRecipient,
                         status,
                         Instant.now()
@@ -323,14 +381,14 @@ public class DailyDigestService {
                 MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
                 helper.setFrom(defaultSender, "Project Eventix Operations");
                 helper.setTo(effectiveRecipient);
-                helper.setSubject("Eventix Daily Digest Report - " + today + " | Customer Activity & Purchases");
+                helper.setSubject(subject);
                 helper.setText(htmlContent, true);
 
                 mailSender.send(message);
-                log.info("Successfully sent Daily Digest email from {} to {}", defaultSender, effectiveRecipient);
+                log.info("Successfully sent {} Digest email from {} to {}", reportPeriod, defaultSender, effectiveRecipient);
             } catch (Exception e) {
                 String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-                log.error("Failed to send Daily Digest email to {}: {}", effectiveRecipient, errorMsg, e);
+                log.error("Failed to send Digest email to {}: {}", effectiveRecipient, errorMsg, e);
                 status = "FAILED: " + (errorMsg.length() > 200 ? errorMsg.substring(0, 200) : errorMsg);
             }
         }
@@ -348,6 +406,8 @@ public class DailyDigestService {
         record.setTotalRevenue(revenue);
         record.setTotalErrors(errors);
         record.setTotalWarnings(warnings);
+        record.setTotalVisits(totalVisits);
+        record.setUniqueVisitors(uniqueVis);
         record.setEmailRecipient(effectiveRecipient);
         record.setStatus(status);
         record.setGeneratedAt(Instant.now());
@@ -556,6 +616,10 @@ public class DailyDigestService {
 
     private String buildHtmlReport(
         LocalDate date,
+        String reportPeriod,
+        int totalVisits,
+        int uniqueVisitors,
+        Map<String, AtomicInteger> pageViews,
         int orders,
         int confirmed,
         int failed,
@@ -566,6 +630,19 @@ public class DailyDigestService {
         Map<String, AtomicInteger> searches,
         List<CustomerActivitySummary> activities
     ) {
+        StringBuilder trafficHtml = new StringBuilder();
+        if (pageViews == null || pageViews.isEmpty()) {
+            trafficHtml.append("<p style='color: #94a3b8; font-size: 12px; font-style: italic;'>No store page views recorded during this period.</p>");
+        } else {
+            trafficHtml.append("<div style='display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;'>");
+            pageViews.forEach((page, count) -> {
+                trafficHtml.append("<span style='background: #1e293b; border: 1px solid #475569; padding: 4px 10px; border-radius: 20px; font-size: 12px; color: #38bdf8;'>")
+                    .append("<strong>").append(page).append("</strong> (")
+                    .append(count.get()).append(" visits)</span> ");
+            });
+            trafficHtml.append("</div>");
+        }
+
         StringBuilder purchasesHtml = new StringBuilder();
         if (purchases.isEmpty()) {
             purchasesHtml.append("<tr><td colspan='5' style='padding: 12px; text-align: center; color: #94a3b8; font-style: italic;'>No customer purchases recorded today.</td></tr>");
@@ -656,13 +733,18 @@ public class DailyDigestService {
             <body>
                 <div class="container">
                     <div class="header">
-                        <h1>Project Eventix - Executive Daily Digest</h1>
-                        <div class="date">Daily Operations & Customer Activity Summary for <strong>%s</strong></div>
+                        <h1>Project Eventix - Executive %s Digest</h1>
+                        <div class="date">%s Operations & Customer Activity Summary for <strong>%s</strong></div>
                         <div class="badge">Dispatched directly to: %s</div>
                     </div>
 
                     <!-- KPI Statistics Grid -->
                     <div class="grid">
+                        <div class="card">
+                            <div class="card-label">Total Site Visits</div>
+                            <div class="card-value val-revenue">%d</div>
+                            <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">%d Unique Visitors</div>
+                        </div>
                         <div class="card">
                             <div class="card-label">Total Revenue</div>
                             <div class="card-value val-revenue">$%s</div>
@@ -680,13 +762,19 @@ public class DailyDigestService {
                             <div class="card-value val-errors">%d</div>
                         </div>
                         <div class="card">
-                            <div class="card-label">System Errors</div>
-                            <div class="card-value val-errors">%d</div>
+                            <div class="card-label">System Issues</div>
+                            <div class="card-value val-warnings">%d / %d</div>
+                            <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Errors / Warnings</div>
                         </div>
-                        <div class="card">
-                            <div class="card-label">System Warnings</div>
-                            <div class="card-value val-warnings">%d</div>
-                        </div>
+                    </div>
+
+                    <!-- Section: Website Traffic & Visitor Surveillance -->
+                    <div class="section-title">
+                        Website Traffic & Visitor Surveillance (%d visits, %d unique)
+                    </div>
+                    <div style="background: #1f2937; padding: 16px; border-radius: 12px; border: 1px solid #374151;">
+                        <div style="font-size: 11px; color: #94a3b8; margin-bottom: 6px; text-transform: uppercase; font-weight: bold;">Page Views Breakdown</div>
+                        %s
                     </div>
 
                     <!-- Section 1: Customer Purchases Breakdown -->
@@ -734,25 +822,33 @@ public class DailyDigestService {
                     </table>
 
                     <div class="footer">
-                        Automated Daily Security & Operations Digest &bull; Project Eventix Microservices Architecture &bull; Mailpit SMTP Integration
+                        Automated %s Security & Operations Digest &bull; Project Eventix Microservices Architecture &bull; Google Cloud Webhook
                     </div>
                 </div>
             </body>
             </html>
             """.formatted(
+                reportPeriod,
+                reportPeriod,
                 date,
                 defaultRecipient,
+                totalVisits,
+                uniqueVisitors,
                 revenue.toPlainString(),
                 orders,
                 confirmed,
                 failed,
                 errors,
                 warnings,
+                totalVisits,
+                uniqueVisitors,
+                trafficHtml.toString(),
                 purchases.size(),
                 purchasesHtml.toString(),
                 searches.size(),
                 searchesHtml.toString(),
-                activitiesHtml.toString()
+                activitiesHtml.toString(),
+                reportPeriod
             );
     }
 

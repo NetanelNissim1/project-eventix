@@ -37,6 +37,12 @@ public class DailyDigestRecord {
     @Column(name = "total_warnings", nullable = false)
     private int totalWarnings;
 
+    @Column(name = "total_visits", nullable = false)
+    private int totalVisits = 0;
+
+    @Column(name = "unique_visitors", nullable = false)
+    private int uniqueVisitors = 0;
+
     @Column(name = "email_recipient", nullable = false)
     private String emailRecipient;
 
@@ -51,6 +57,12 @@ public class DailyDigestRecord {
     public DailyDigestRecord(String id, LocalDate reportDate, int totalOrders, int confirmedOrders, int failedOrders, 
                              BigDecimal totalRevenue, int totalErrors, int totalWarnings, String emailRecipient, 
                              String status, Instant generatedAt) {
+        this(id, reportDate, totalOrders, confirmedOrders, failedOrders, totalRevenue, totalErrors, totalWarnings, 0, 0, emailRecipient, status, generatedAt);
+    }
+
+    public DailyDigestRecord(String id, LocalDate reportDate, int totalOrders, int confirmedOrders, int failedOrders, 
+                             BigDecimal totalRevenue, int totalErrors, int totalWarnings, int totalVisits, int uniqueVisitors,
+                             String emailRecipient, String status, Instant generatedAt) {
         this.id = id;
         this.reportDate = reportDate;
         this.totalOrders = totalOrders;
@@ -59,6 +71,8 @@ public class DailyDigestRecord {
         this.totalRevenue = totalRevenue;
         this.totalErrors = totalErrors;
         this.totalWarnings = totalWarnings;
+        this.totalVisits = totalVisits;
+        this.uniqueVisitors = uniqueVisitors;
         this.emailRecipient = emailRecipient;
         this.status = status;
         this.generatedAt = generatedAt;
@@ -87,6 +101,12 @@ public class DailyDigestRecord {
 
     public int getTotalWarnings() { return totalWarnings; }
     public void setTotalWarnings(int totalWarnings) { this.totalWarnings = totalWarnings; }
+
+    public int getTotalVisits() { return totalVisits; }
+    public void setTotalVisits(int totalVisits) { this.totalVisits = totalVisits; }
+
+    public int getUniqueVisitors() { return uniqueVisitors; }
+    public void setUniqueVisitors(int uniqueVisitors) { this.uniqueVisitors = uniqueVisitors; }
 
     public String getEmailRecipient() { return emailRecipient; }
     public void setEmailRecipient(String emailRecipient) { this.emailRecipient = emailRecipient; }

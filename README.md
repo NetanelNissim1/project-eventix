@@ -734,15 +734,18 @@ An executive surveillance ribbon and interactive drawer integrated into the Admi
 
 ---
 
-### D. Interactive Email Scheduling & Daily Digest (`/digest`)
+### D. Interactive Email Scheduling & Operations Digest (`/digest`)
 
-Full control over daily digest and commercial surveillance reporting:
+Full control over commercial surveillance and website traffic reporting:
 
-- **1-Click Immediate Dispatch (Send Now)**: Instantly compiles today's transactions and dispatches directly to `bill.nissim@gmail.com`.
-- **Recurring Schedule**: Flexible cron configuration (Daily or specific days of the week, with custom target hour and minute).
-- **One-Off Scheduled Dispatch**: Date and time picker for target delivery.
-- **Live In-Flight Surveillance Preview**: Real-time inspection of today's customer purchases, popular search queries, and recent activity logs prior to dispatch.
-- **Search Query Streaming**: Debounced search queries typed into the store catalog are streamed via `POST /api/v1/digest/record-activity` and aggregated into the digest.
+- **Monthly Default Dispatch (Once a Month at 23:00)**: Configured out-of-the-box to send an executive digest on the 1st of each month at 23:00 directly to `bill.nissim@gmail.com`.
+- **General Website Traffic & Visitor Surveillance**:
+  - **Non-blocking Route Telemetry**: [`TrafficTracker.tsx`](file:///c:/projects/project-eventix/frontend-client/src/components/TrafficTracker.tsx) captures page views across all SPA routes (including `/qa`, catalog, checkout, etc.) using `sessionStorage` session keys.
+  - **Traffic Metrics**: Quantifies Total Page Visits, Unique Visitor Sessions, and Most Visited Page breakdowns.
+  - **Digest & Live Dashboard Integration**: Traffic counters appear in the live in-flight surveillance preview, executive email digest KPI cards, and dispatched archive history.
+- **1-Click Immediate Dispatch (Send Now)**: Instantly compiles current transactions, website traffic, and activity logs and dispatches directly to `bill.nissim@gmail.com`.
+- **Flexible Scheduling Controls**: Choose between Monthly (with custom day of month), Daily, Weekly, or One-Off future date/time delivery.
+- **Search Query Streaming**: Debounced store searches typed into the store catalog are streamed via `POST /api/v1/digest/record-activity` and aggregated into the digest.
 
 ---
 

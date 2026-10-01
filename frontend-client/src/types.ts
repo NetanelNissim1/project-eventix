@@ -99,6 +99,8 @@ export interface DailyDigest {
   totalRevenue: number;
   totalErrors: number;
   totalWarnings: number;
+  totalVisits?: number;
+  uniqueVisitors?: number;
   emailRecipient: string;
   status: string;
   generatedAt: string;
@@ -106,10 +108,11 @@ export interface DailyDigest {
 
 export interface DigestScheduleConfig {
   scheduleType: 'RECURRING' | 'ONE_OFF' | 'DISABLED';
-  recurringFrequency: 'DAILY' | 'WEEKLY';
+  recurringFrequency: 'DAILY' | 'WEEKLY' | 'MONTHLY';
   targetHour: number;
   targetMinute: number;
   targetDayOfWeek: string;
+  targetDayOfMonth?: number;
   oneOffDateTime?: string;
   recipient: string;
   active: boolean;
